@@ -53,7 +53,7 @@ Use `/trust` in interactive mode to save a project trust decision for future ses
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `theme` | string | `"dark"` | Theme name (`"dark"`, `"light"`, or custom) |
-| `externalEditor` | string | `$VISUAL`, then `$EDITOR`, then Notepad on Windows or `nano` elsewhere | Command for Ctrl+G external editor; takes precedence over environment variables |
+| `externalEditor` | string | `$VISUAL`, then `$EDITOR`, then `nano` | Command for Ctrl+G external editor; takes precedence over environment variables |
 | `quietStartup` | boolean | `false` | Hide startup header |
 | `defaultProjectTrust` | string | `"ask"` | Fallback project trust behavior: `"ask"`, `"always"`, or `"never"`. Global setting only |
 | `collapseChangelog` | boolean | `false` | Show condensed changelog after updates |
@@ -192,23 +192,9 @@ Keep `retry.provider.maxRetries` at `0` unless provider-level retries are explic
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `shellPath` | string | - | Custom shell path (e.g., for Cygwin on Windows); supports a leading `~` for the home directory |
+| `shellPath` | string | - | Custom shell path; supports a leading `~` for the home directory |
 | `shellCommandPrefix` | string | - | Prefix for every bash command (e.g., `"shopt -s expand_aliases"`) |
 | `npmCommand` | string[] | - | Command argv used for npm package lookup/install operations (e.g., `["mise", "exec", "node@20", "--", "npm"]`) |
-
-Windows paths in JSON must use forward slashes or escaped backslashes:
-
-```json
-{
-  "shellPath": "C:/Program Files/Git/bin/bash.exe"
-}
-```
-
-```json
-{
-  "shellPath": "C:\\Program Files\\Git\\bin\\bash.exe"
-}
-```
 
 ```json
 {
@@ -224,19 +210,11 @@ Windows paths in JSON must use forward slashes or escaped backslashes:
 |---------|------|---------|-------------|
 | `defaultTools` | string[] | - | Built-in tools enabled initially. When omitted, Pi uses its standard defaults |
 
-`defaultTools` selects the built-in tools enabled at startup. Extension and SDK custom tools remain enabled. Available built-ins are `read`, `bash`, `powershell`, `edit`, `write`, `grep`, `find`, and `ls`:
+`defaultTools` selects the built-in tools enabled at startup. Extension and SDK custom tools remain enabled. Available built-ins are `read`, `bash`, `edit`, `write`, `grep`, `find`, and `ls`:
 
 ```json
 {
   "defaultTools": ["bash", "edit", "write"]
-}
-```
-
-On Windows, select `powershell` instead of `bash`, or include both:
-
-```json
-{
-  "defaultTools": ["read", "powershell", "edit", "write"]
 }
 ```
 

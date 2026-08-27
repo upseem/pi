@@ -21,12 +21,12 @@ The editor can be replaced temporarily by built-in UI such as `/settings` or by 
 |---------|-----|
 | File reference | Type `@` to fuzzy-search project files |
 | Path completion | Press Tab to complete paths |
-| Multi-line input | Shift+Enter, or Ctrl+Enter on Windows Terminal |
+| Multi-line input | Shift+Enter |
 | Copy response | Ctrl+X copies the last assistant message; in `/tree`, it copies the selected message |
-| Images | Paste with Ctrl+V, Alt+V on Windows, or drag into the terminal |
+| Images | Paste with Ctrl+V, or drag into the terminal |
 | Shell command | `!command` runs and sends output to the model |
 | Hidden shell command | `!!command` runs without sending output to the model |
-| External editor | Ctrl+G opens `externalEditor`, `$VISUAL`, `$EDITOR`, Notepad on Windows, or `nano` elsewhere |
+| External editor | Ctrl+G opens `externalEditor`, `$VISUAL`, `$EDITOR`, or `nano` |
 
 See [Keybindings](keybindings.md) for all shortcuts and customization.
 
@@ -68,8 +68,6 @@ You can submit messages while the agent is still working:
 - **Alt+Enter** queues a follow-up message, delivered after the agent finishes all work.
 - **Escape** aborts and restores queued messages to the editor.
 - **Alt+Up** retrieves queued messages back to the editor.
-
-On Windows Terminal, Alt+Enter is fullscreen by default. Remap it as described in [Terminal setup](terminal-setup.md) if you want pi to receive the shortcut.
 
 Configure delivery in [Settings](settings.md) with `steeringMode` and `followUpMode`.
 
@@ -214,7 +212,7 @@ cat README.md | pi -p "Summarize this text"
 | `--no-builtin-tools`, `-nbt` | Disable built-in tools but keep extension/custom tools enabled |
 | `--no-tools`, `-nt` | Disable all tools |
 
-Built-in tools: `read`, `bash`, `powershell` (Windows), `edit`, `write`, `grep`, `find`, `ls`.
+Built-in tools: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`.
 
 ### Resource Options
 

@@ -117,7 +117,6 @@ VS Code versions older than 1.109.5 need an explicit terminal keybinding for `Sh
 `keybindings.json` locations:
 - macOS: `~/Library/Application Support/Code/User/keybindings.json`
 - Linux: `~/.config/Code/User/keybindings.json`
-- Windows: `%APPDATA%\\Code\\User\\keybindings.json`
 
 Add to `keybindings.json`:
 
@@ -129,33 +128,6 @@ Add to `keybindings.json`:
   "when": "terminalFocus"
 }
 ```
-
-## Windows Terminal
-
-Pi uses Windows-style keybindings when running natively on Windows or in WSL:
-
-- `Alt+V` pastes an image or clipboard text.
-- `Ctrl+F` searches the transcript in fullscreen mode, and `Ctrl+Up`/`Ctrl+Down` jump between marked messages.
-- `Alt+P` cycles to the previous model.
-- `Ctrl+Z` undoes editing on native Windows; WSL uses `Alt+Z` so `Ctrl+Z` can suspend pi.
-- `Ctrl+Q` queues a follow-up message and `Alt+Q` restores queued messages.
-
-Add to `settings.json` (Ctrl+Shift+, or Settings → Open JSON file) to forward `Shift+Enter` for inserting a new line:
-
-```json
-{
-  "actions": [
-    {
-      "command": { "action": "sendInput", "input": "\u001b[13;2u" },
-      "keys": "shift+enter"
-    }
-  ]
-}
-```
-
-Windows Terminal binds `Alt+Enter` to fullscreen by default. To use it instead of pi's `Ctrl+Q` default for follow-up queueing, configure Windows Terminal to send the key and bind `app.message.followUp` to `alt+enter` in pi.
-
-If you already have an `actions` array, add the object to it. Fully close and reopen Windows Terminal after changing its settings.
 
 ## xfce4-terminal, terminator
 

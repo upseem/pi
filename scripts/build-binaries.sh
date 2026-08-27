@@ -11,7 +11,7 @@
 #   --skip-deps          Skip installing cross-platform dependencies
 #   --skip-build         Skip the package build
 #   --offline-model-data Build with bundled model data instead of refreshing it
-#   --platform <name>    Build only for specified platform (darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64, windows-arm64)
+#   --platform <name>    Build only for specified platform (darwin-arm64, darwin-x64, linux-x64, linux-arm64)
 #   --out <dir>          Output directory (default: packages/coding-agent/binaries)
 #
 # Output:
@@ -20,8 +20,6 @@
 #     pi-darwin-x64.tar.gz
 #     pi-linux-x64.tar.gz
 #     pi-linux-arm64.tar.gz
-#     pi-windows-x64.zip
-#     pi-windows-arm64.zip
 
 set -euo pipefail
 
@@ -70,11 +68,11 @@ done
 # Validate platform if specified
 if [[ -n "$PLATFORM" ]]; then
     case "$PLATFORM" in
-        darwin-arm64|darwin-x64|linux-x64|linux-arm64|windows-x64|windows-arm64)
+        darwin-arm64|darwin-x64|linux-x64|linux-arm64)
             ;;
         *)
             echo "Invalid platform: $PLATFORM"
-            echo "Valid platforms: darwin-arm64, darwin-x64, linux-x64, linux-arm64, windows-x64, windows-arm64"
+            echo "Valid platforms: darwin-arm64, darwin-x64, linux-x64, linux-arm64"
             exit 1
             ;;
     esac
@@ -112,18 +110,14 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
         @mariozechner/clipboard-darwin-arm64@"$CLIPBOARD_VERSION" \
         @mariozechner/clipboard-darwin-x64@"$CLIPBOARD_VERSION" \
         @mariozechner/clipboard-linux-x64-gnu@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-linux-arm64-gnu@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-win32-x64-msvc@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-win32-arm64-msvc@"$CLIPBOARD_VERSION"
+        @mariozechner/clipboard-linux-arm64-gnu@"$CLIPBOARD_VERSION"
     mkdir -p node_modules/@mariozechner
     for package in \
         clipboard \
         clipboard-darwin-arm64 \
         clipboard-darwin-x64 \
         clipboard-linux-x64-gnu \
-        clipboard-linux-arm64-gnu \
-        clipboard-win32-x64-msvc \
-        clipboard-win32-arm64-msvc; do
+        clipboard-linux-arm64-gnu; do
         rm -rf "node_modules/@mariozechner/$package"
         cp -R "$NATIVE_DEPS_DIR/node_modules/@mariozechner/$package" node_modules/@mariozechner/
     done
@@ -150,13 +144,13 @@ cd packages/coding-agent
 
 # Clean previous builds
 rm -rf "$OUTPUT_DIR"
-mkdir -p "$OUTPUT_DIR"/{darwin-arm64,darwin-x64,linux-x64,linux-arm64,windows-x64,windows-arm64}
+mkdir -p "$OUTPUT_DIR"/{darwin-arm64,darwin-x64,linux-x64,linux-arm64}
 
 # Determine which platforms to build
 if [[ -n "$PLATFORM" ]]; then
     PLATFORMS=("$PLATFORM")
 else
-    PLATFORMS=(darwin-arm64 darwin-x64 linux-x64 linux-arm64 windows-x64 windows-arm64)
+    PLATFORMS=(darwin-arm64 darwin-x64 linux-x64 linux-arm64)
 fi
 
 set_clipboard_target() {
@@ -177,14 +171,6 @@ set_clipboard_target() {
             clipboard_native_package="clipboard-linux-arm64-gnu"
             clipboard_native_file="clipboard.linux-arm64-gnu.node"
             ;;
-        windows-x64)
-            clipboard_native_package="clipboard-win32-x64-msvc"
-            clipboard_native_file="clipboard.win32-x64-msvc.node"
-            ;;
-        windows-arm64)
-            clipboard_native_package="clipboard-win32-arm64-msvc"
-            clipboard_native_file="clipboard.win32-arm64-msvc.node"
-            ;;
     esac
 }
 
@@ -201,11 +187,7 @@ for platform in "${PLATFORMS[@]}"; do
     #
     # Disable cwd bunfig.toml autoload so project preload scripts cannot crash the
     # standalone binary before pi starts (see #7684).
-    if [[ "$platform" == windows-* ]]; then
-        bun build --compile --no-compile-autoload-bunfig --target="$bun_target" ./dist/bun/cli.js ./src/utils/image-resize-worker.ts --outfile "$OUTPUT_DIR/$platform/pi.exe"
-    else
-        bun build --compile --no-compile-autoload-bunfig --target="$bun_target" ./dist/bun/cli.js ./src/utils/image-resize-worker.ts --outfile "$OUTPUT_DIR/$platform/pi"
-    fi
+    bun build --compile --no-compile-autoload-bunfig --target="$bun_target" ./dist/bun/cli.js ./src/utils/image-resize-worker.ts --outfile "$OUTPUT_DIR/$platform/pi"
 done
 
 echo "==> Creating release archives..."
@@ -235,30 +217,14 @@ for platform in "${PLATFORMS[@]}"; do
         mkdir -p "$OUTPUT_DIR/$platform/native/darwin/prebuilds/$platform"
         cp ../tui/native/darwin/prebuilds/$platform/darwin-modifiers.node "$OUTPUT_DIR/$platform/native/darwin/prebuilds/$platform/"
     fi
-    if [[ "$platform" == windows-* ]]; then
-        if [[ "$platform" == "windows-arm64" ]]; then
-            win32_arch_dir="win32-arm64"
-        else
-            win32_arch_dir="win32-x64"
-        fi
-        mkdir -p "$OUTPUT_DIR/$platform/native/win32/prebuilds/$win32_arch_dir"
-        cp ../tui/native/win32/prebuilds/$win32_arch_dir/win32-console-mode.node "$OUTPUT_DIR/$platform/native/win32/prebuilds/$win32_arch_dir/"
-    fi
 done
 
 # Create archives
 cd "$OUTPUT_DIR"
 
 for platform in "${PLATFORMS[@]}"; do
-    if [[ "$platform" == windows-* ]]; then
-        # Windows (zip)
-        echo "Creating pi-$platform.zip..."
-        (cd "$platform" && zip -r ../pi-$platform.zip .)
-    else
-        # Unix platforms (tar.gz) - use wrapper directory for mise compatibility
-        echo "Creating pi-$platform.tar.gz..."
-        mv "$platform" pi && tar -czf pi-$platform.tar.gz pi && mv pi "$platform"
-    fi
+    echo "Creating pi-$platform.tar.gz..."
+    mv "$platform" pi && tar -czf pi-$platform.tar.gz pi && mv pi "$platform"
 done
 
 # Extract archives for easy local testing

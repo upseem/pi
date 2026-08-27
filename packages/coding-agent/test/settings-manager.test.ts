@@ -407,15 +407,8 @@ describe("SettingsManager", () => {
 			expect(SettingsManager.inMemory().getExternalEditorCommand()).toBe("emacs");
 		});
 
-		it("should fall back to platform defaults", () => {
+		it("should fall back to nano", () => {
 			setEditorEnv();
-			Object.defineProperty(process, "platform", { value: "win32" });
-			expect(SettingsManager.inMemory().getExternalEditorCommand()).toBe("notepad");
-
-			Object.defineProperty(process, "platform", { value: "darwin" });
-			expect(SettingsManager.inMemory().getExternalEditorCommand()).toBe("nano");
-
-			Object.defineProperty(process, "platform", { value: "linux" });
 			expect(SettingsManager.inMemory().getExternalEditorCommand()).toBe("nano");
 		});
 	});

@@ -8,7 +8,7 @@ describe("getNativeModuleCandidates", () => {
 	it("resolves native helpers from the installed TUI package when the module is bundled elsewhere", () => {
 		const packageRoot = resolve("virtual", "node_modules", "@earendil-works", "pi-tui");
 		const bundledModule = resolve("virtual", "pi-coding-agent", "dist", "bundle", "chunks", "chunk.js");
-		const nativePath = join("native", "win32", "prebuilds", "win32-arm64", "win32-console-mode.node");
+		const nativePath = join("native", "darwin", "prebuilds", "darwin-arm64", "darwin-modifiers.node");
 
 		const candidates = getNativeModuleCandidates(nativePath, {
 			moduleUrl: pathToFileURL(bundledModule).href,

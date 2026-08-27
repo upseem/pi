@@ -115,7 +115,7 @@ pi @README.md "Summarize this"
 pi @src/app.ts @src/app.test.ts "Review these together"
 ```
 
-Images or text can be pasted with Ctrl+V (Alt+V on Windows); images can also be dragged into supported terminals.
+Images or text can be pasted with Ctrl+V; images can also be dragged into supported terminals.
 
 ### Run shell commands
 
@@ -164,4 +164,4 @@ Use `--mode json` for JSON event output or `--mode rpc` for process integration.
 - [Keybindings](keybindings.md) - shortcuts and customization.
 - [Pi Packages](packages.md) - install shared extensions, skills, prompts, and themes.
 
-Platform notes: [Windows](windows.md), [Termux](termux.md), [tmux](tmux.md), [Terminal setup](terminal-setup.md), [Shell aliases](shell-aliases.md).
+Platform notes: [Termux](termux.md), [tmux](tmux.md), [Terminal setup](terminal-setup.md), [Shell aliases](shell-aliases.md).
