@@ -1017,8 +1017,7 @@ export class InteractiveMode {
 		}
 		this.ui.requestRender();
 
-		// Ensure fd and rg are available after mounting the TUI (downloads if missing, adds to PATH via getBinDir)
-		// so slow downloads do not make startup appear frozen.
+		// Resolve fd and rg after mounting the TUI (PATH or local bin dir, no download).
 		// Both are needed: fd for autocomplete, rg for grep tool and bash commands.
 		const [fdPath] = await Promise.all([
 			ensureTool("fd", (status) => this.showManagedToolStatus(status)),
