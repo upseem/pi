@@ -75,6 +75,7 @@ Pi 使用 JSON 设置文件，项目设置会覆盖全局设置。
 | `tuiMode` | string | `"regular"` | 交互 TUI 模式：`"regular"` 或实验性 `"fullscreen"`。从 `/settings` 更改会立即生效；`--tui-mode` 在启动时覆盖此设置 |
 | `fullscreenExitOutput` | string | `"transcript"` | 全屏退出输出：`"transcript"` 打印最终会话记录和恢复提示，`"resume-hint"` 恢复上一屏并只打印恢复提示。在常规 TUI 模式下无效 |
 | `fullscreenScrollbar` | string | `"auto"` | 全屏会话滚动条：`"auto"` 滚动时临时显示，`"always"` 预留最右列并保持可见，`"hidden"` 隐藏。在常规 TUI 模式下无效 |
+| `fullscreenCopyOnSelect` | boolean | `true` | 在全屏模式下自动复制选中的文本。禁用后，选区会保持高亮，按 `Ctrl+X` 可复制当前选区 |
 
 对 VS Code，加入 `--wait`，以便编辑器退出后 pi 再继续：
 

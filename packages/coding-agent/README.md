@@ -169,9 +169,9 @@ Pi 也支持 llama.cpp 路由服务器。用 `/login llama.cpp` 配置，用 `/l
 |---------|-----|
 | 文件引用 | 输入 `@` 对项目文件做模糊搜索 |
 | 路径补全 | 按 Tab 补全路径 |
-| 多行 | Shift+Enter（Windows Terminal 上为 Ctrl+Enter） |
-| 外部编辑器 | Ctrl+G 打开 `externalEditor`、`$VISUAL`、`$EDITOR`，Windows 上为 Notepad，其他平台为 `nano` |
-| 剪贴板 | Ctrl+V 粘贴图片或文本（Windows 上为 Alt+V），或把图片拖到终端 |
+| 多行 | Shift+Enter |
+| 外部编辑器 | Ctrl+G 打开 `externalEditor`、`$VISUAL`、`$EDITOR` 或 `nano` |
+| 剪贴板 | Ctrl+V 粘贴图片或文本，或把图片拖到终端 |
 | Bash 命令 | `!command` 运行并把输出发给 LLM，`!!command` 运行但不发送 |
 
 删除单词、撤销等标准编辑快捷键见 [docs/keybindings.md](docs/keybindings.md)。
@@ -225,7 +225,7 @@ Pi 也支持 llama.cpp 路由服务器。用 `/login llama.cpp` 配置，用 `/l
 | Shift+Tab | 循环思考级别 |
 | Ctrl+O | 折叠/展开工具输出 |
 | Ctrl+T | 折叠/展开思考块 |
-| Ctrl+X | 复制上一条助手消息 |
+| Ctrl+X | 复制上一条助手消息；禁用全屏选中即复制时，复制当前选中的文本 |
 
 <a id="message-queue"></a>
 ### 消息队列
@@ -236,8 +236,6 @@ Pi 也支持 llama.cpp 路由服务器。用 `/login llama.cpp` 配置，用 `/l
 - **Alt+Enter** 排队一条*后续*消息，仅在代理完成全部工作后投递
 - **Escape** 中止并把已排队消息恢复到编辑器
 - **Alt+Up** 把已排队消息取回编辑器
-
-在 Windows Terminal 上，`Alt+Enter` 默认是全屏。按 [docs/terminal-setup.md](docs/terminal-setup.md) 重新映射，以便 pi 能收到后续消息快捷键。
 
 在 [设置](docs/settings.md) 中配置投递：`steeringMode` 和 `followUpMode` 可以是 `"one-at-a-time"`（默认，等待回复）或 `"all"`（一次投递全部排队消息）。`transport` 为支持多种传输的提供商选择传输偏好（`"sse"`、`"websocket"` 或 `"auto"`）。
 
@@ -720,7 +718,7 @@ pi --thinking high "Solve this complex problem"
 | `PI_SKIP_VERSION_CHECK` | 跳过启动时的 Pi 版本更新检查。这会阻止向 `pi.dev` 请求最新版本 |
 | `PI_TELEMETRY` | 覆盖安装/更新遥测与提供商归因头。用 `1`/`true`/`yes` 启用，或 `0`/`false`/`no` 禁用。这不会禁用更新检查 |
 | `PI_CACHE_RETENTION` | 设为 `long` 可延长 prompt 缓存（Anthropic：1h，OpenAI：24h） |
-| `VISUAL`、`EDITOR` | 未设置 `externalEditor` 时 Ctrl+G 的外部编辑器回退；Windows 默认为 Notepad，其他平台为 `nano` |
+| `VISUAL`、`EDITOR` | 未设置 `externalEditor` 时 Ctrl+G 的外部编辑器回退；最终回退为 `nano` |
 
 LLM 可调用的 `bash` 工具所运行的命令也会收到当前会话元数据：
 

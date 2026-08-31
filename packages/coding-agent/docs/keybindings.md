@@ -170,7 +170,7 @@
 | Keybinding id | 默认 | 说明 |
 |--------|---------|-------------|
 | `app.tools.expand` | `ctrl+o` | 折叠或展开工具输出 |
-| `app.message.copy` | `ctrl+x` | 复制上一条助手消息；在 `/tree` 中复制选中的消息 |
+| `app.message.copy` | `ctrl+x` | 在 `/tree` 中复制选中的消息；其他情况下复制上一条助手消息，或在禁用 `fullscreenCopyOnSelect` 时复制当前全屏文本选区 |
 | `app.message.followUp` | `alt+enter` | 排队后续消息 |
 | `app.message.dequeue` | `alt+up` | 把已排队消息恢复到编辑器 |
 
