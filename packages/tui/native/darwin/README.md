@@ -1,20 +1,20 @@
-# Darwin native prebuilds
+# Darwin 原生预构建
 
-Build both macOS architectures from the repository root:
+从仓库根目录为两种 macOS 架构构建：
 
 ```sh
 npm --prefix packages/tui run build:native:darwin
 ```
 
-The build uses macOS 11.0 as the arm64 deployment target and macOS 10.15 as the x86_64 deployment target. On macOS, `build.sh` finds Apple clang and the active macOS SDK through `xcrun`. Either an Intel or Apple Silicon host can build both outputs.
+构建将 macOS 11.0 作为 arm64 部署目标，将 macOS 10.15 作为 x86_64 部署目标。在 macOS 上，`build.sh` 通过 `xcrun` 查找 Apple clang 和当前 macOS SDK。Intel 或 Apple Silicon 主机都可以构建两套产物。
 
-A non-macOS host needs a complete Darwin cross-toolchain, including a macOS SDK and a Mach-O linker. For example, an osxcross installation can be selected with `CC` and `SDKROOT`:
+非 macOS 主机需要完整的 Darwin 交叉工具链，包括 macOS SDK 和 Mach-O 链接器。例如，可以用 `CC` 和 `SDKROOT` 指定一套 osxcross 安装：
 
 ```sh
 CC=/path/to/osxcross/clang SDKROOT=/path/to/MacOSX.sdk \
   npm --prefix packages/tui run build:native:darwin
 ```
 
-The SDK must be obtained and used in accordance with Apple's license. Plain Linux or Windows clang is not enough because the addon includes and links CoreGraphics.
+SDK 必须按 Apple 许可获取和使用。普通的 Linux 或 Windows clang 不够用，因为该 addon 会包含并链接 CoreGraphics。
 
-Zig is not used here because it does not provide the Apple SDK or CoreGraphics framework stubs. It therefore does not make this build SDK-independent, and its clang driver does not currently handle this Mach-O bundle recipe as a drop-in replacement for Apple clang.
+这里不用 Zig，因为它不提供 Apple SDK 或 CoreGraphics framework stub，因此无法让这次构建摆脱对 SDK 的依赖；它的 clang 驱动目前也不能把这套 Mach-O bundle 配方当作 Apple clang 的即插即用替代。

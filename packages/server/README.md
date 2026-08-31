@@ -1,12 +1,12 @@
 # @earendil-works/pi-server
 
-Experimental. This package is under active development and may change or be removed without notice. Its APIs and behavior are not yet stable.
+实验性。本包仍在积极开发中，可能在无通知的情况下变更或移除。API 与行为尚未稳定。
 
-Server package for pi.
+这是 pi 的服务端包。
 
-## Session server core
+## 会话服务端核心
 
-The package exports the `PiServer` session server.
+本包导出 `PiServer` 会话服务端。
 
 ```ts
 import type { PiServerService } from "@earendil-works/pi-server";
@@ -33,18 +33,18 @@ const server = createUnixServer(service, {
 await server.start();
 ```
 
-`PiServer` composes transport listeners through the `PiServerListener` interface. Each listener must complete any transport-specific authentication and authorization before passing a connection to `PiServer`. For example, a WebSocket listener can validate credentials during the HTTP upgrade, while the Unix listener relies on socket filesystem permissions. The Unix submodule exports the `createUnixListener()` building block and `createUnixServer()` preset, keeping the common case concise without coupling the primary server to Unix sockets. The listener uses length-prefixed CBOR messages from `@earendil-works/pi-protocol`.
+`PiServer` 通过 `PiServerListener` 接口组合传输监听器。每个监听器必须先完成该传输特有的认证与授权，再把连接交给 `PiServer`。例如，WebSocket 监听器可以在 HTTP upgrade 期间校验凭据，而 Unix 监听器依赖 socket 的文件系统权限。Unix 子模块导出 `createUnixListener()` 构建块和 `createUnixServer()` 预设，既覆盖常见用法，又不会把主服务端耦到 Unix socket。监听器使用 `@earendil-works/pi-protocol` 的长度前缀 CBOR 消息。
 
-This package does not provide a standalone CLI or coding-agent service. Applications supply the `PiServerService` implementation.
+本包不提供独立 CLI 或编码代理服务。应用需要自己实现 `PiServerService`。
 
-`PiServerService.listSessions()` returns protocol `SessionMetadata`, not acquired runtime state. Services should map the durable fields their storage supports and may omit `updatedAt`, `parentSessionId`, `sessionName`, and `cwd`. `PiServer` refreshes available metadata from live snapshots without requiring stored sessions to fabricate phase, model, thinking-level, attachment, or lock values.
+`PiServerService.listSessions()` 返回协议层的 `SessionMetadata`，不是已获取的运行时状态。服务应按其存储实际支持的持久字段做映射，可以省略 `updatedAt`、`parentSessionId`、`sessionName` 和 `cwd`。`PiServer` 会从实时快照刷新可用元数据，不要求已存储的会话伪造阶段、模型、思考级别、附件或锁状态。
 
-## Transport testing
+## 传输测试
 
-Custom transports can use `@earendil-works/pi-server/testing` for deterministic protocol conformance tests. It exports `createTestServer()`, `TestServerService`, `ProtocolTestClient`, and the transport-neutral `WireChannel` contract. `connectUnixTestClient()` is provided for Unix transport tests.
+自定义传输可以使用 `@earendil-works/pi-server/testing` 做确定性的协议一致性测试。它导出 `createTestServer()`、`TestServerService`、`ProtocolTestClient`，以及与传输无关的 `WireChannel` 契约。Unix 传输测试可以使用 `connectUnixTestClient()`。
 
-## `pi-ai` protocol bridge
+## `pi-ai` 协议桥
 
-`@earendil-works/pi-ai` domain objects and `@earendil-works/pi-protocol` wire DTOs remain independent. This package owns their boundary and exports `toProtocolModelMetadata()`, `toProtocolAssistantMessage()`, `toProtocolUserMessage()`, and `toProtocolToolResultMessage()`.
+`@earendil-works/pi-ai` 的领域对象与 `@earendil-works/pi-protocol` 的线上 DTO 彼此独立。本包负责二者边界，并导出 `toProtocolModelMetadata()`、`toProtocolAssistantMessage()`、`toProtocolUserMessage()` 和 `toProtocolToolResultMessage()`。
 
-The adapters reject invalid tool inputs, identifiers, timestamps, and mismatched tool results; `toProtocolToolResultMessage()` requires the original `ToolCall` so it can verify the association and convert its arguments itself. Diagnostic details are explicitly sanitized. Closed `pi-ai` unions are mapped exhaustively, and compile-time field manifests enumerate current `pi-ai` properties so additions require an explicit review. The protocol mirrors `pi-ai` vocabulary such as `toolCall` and `toolUse` where the semantics are identical. Protocol schemas enforce consistent lifecycle states, and tests encode adapter output through the runtime schemas so incompatible changes fail in the bridging package.
+适配器会拒绝非法工具输入、标识符、时间戳以及不匹配的工具结果；`toProtocolToolResultMessage()` 需要原始 `ToolCall`，以便校验关联并自行转换参数。诊断细节会被显式清洗。封闭的 `pi-ai` 联合类型会穷尽映射，编译期字段清单会枚举当前 `pi-ai` 属性，因此新增字段必须经过显式审查。协议在语义相同处沿用 `pi-ai` 词汇，例如 `toolCall` 和 `toolUse`。协议 schema 强制一致的生命周期状态；测试会把适配器输出再经运行时 schema 编码，不兼容的变更会在桥接包中失败。

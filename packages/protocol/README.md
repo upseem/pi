@@ -1,19 +1,19 @@
 # @earendil-works/pi-protocol
 
-Runtime-neutral schemas, types, CBOR encoding, and byte-stream framing for the experimental pi protocol.
+面向实验性 pi 协议的、与运行时无关的 schema、类型、CBOR 编码，以及字节流分帧。
 
-Protocol version `1` uses binary messages with this wire layout:
+协议版本 `1` 使用二进制消息，线上布局如下：
 
-1. A four-byte unsigned big-endian payload length.
-2. One definite-length CBOR item containing the message.
+1. 四个字节的无符号大端 payload 长度。
+2. 一个定长 CBOR 项，内容即为消息。
 
-The first client message is always `hello`, containing `PROTOCOL_VERSION`. Subsequent messages use correlated request/response envelopes and server event envelopes. Session and server snapshots are authoritative. Progress events are transient UI hints and must not be reduced into authoritative state. Transports complete authentication before protocol bytes are exchanged.
+客户端发出的第一条消息始终是 `hello`，其中包含 `PROTOCOL_VERSION`。后续消息使用带关联的请求/响应信封，以及服务端事件信封。会话快照和服务端快照是权威状态。进度事件只是短暂的 UI 提示，不得归并进权威状态。传输层必须在交换协议字节之前完成认证。
 
-Session lists contain `SessionMetadata`, the normalized durable metadata available without acquiring a session runtime. Only `id` and `createdAt` are required; `updatedAt`, `parentSessionId`, `sessionName`, and `cwd` are included when supported by the backing store. Runtime state such as phase, model, thinking level, attachment, and locking appears only in an acquired `SessionSnapshot`.
+会话列表包含 `SessionMetadata`，即可在不获取会话运行时的情况下使用的、归一化后的持久元数据。只有 `id` 和 `createdAt` 是必需的；当底层存储支持时，才会包含 `updatedAt`、`parentSessionId`、`sessionName` 和 `cwd`。阶段、模型、思考级别、附件、锁定等运行时状态只出现在已获取的 `SessionSnapshot` 中。
 
-## Validated message API
+## 带校验的消息 API
 
-`encodeClientMessage()` and `encodeServerMessage()` validate a message and return a complete framed `Uint8Array`. The incremental decoders accept arbitrary fragmentation or coalescing, so they work with streams, sockets, and custom byte transports.
+`encodeClientMessage()` 和 `encodeServerMessage()` 会校验消息，并返回完整分帧后的 `Uint8Array`。增量解码器接受任意分片或合并，因此可用于流、套接字以及自定义字节传输。
 
 ```ts
 import {
@@ -34,36 +34,36 @@ const decoder = createServerMessageDecoder({ maxFrameLength: 1024 * 1024 });
 for (const message of decoder.push(incomingChunk)) {
   handleServerMessage(message);
 }
-decoder.end(); // Call when the byte stream closes to detect truncation.
+decoder.end(); // 字节流关闭时调用，用于检测截断。
 ```
 
-`ClientMessageDecoder` and `ServerMessageDecoder` are also available directly. Schema violations, malformed CBOR, and invalid framing throw `ProtocolValidationError`. Validation errors do not retain rejected payloads.
+也可以直接使用 `ClientMessageDecoder` 和 `ServerMessageDecoder`。Schema 违规、畸形 CBOR 以及非法分帧会抛出 `ProtocolValidationError`。校验错误不会保留被拒绝的 payload。
 
-`parseClientMessage()` and `parseServerMessage()` only validate already-decoded values. They do not parse JSON strings.
+`parseClientMessage()` 和 `parseServerMessage()` 只校验已经解码好的值，不会解析 JSON 字符串。
 
-## Transport support
+## 传输支持
 
-Every transport carries the same complete bytes: `[uint32-be CBOR length][CBOR payload]`. Transports may split or coalesce those bytes arbitrarily.
+每种传输都携带同一套完整字节：`[uint32-be CBOR 长度][CBOR payload]`。传输层可以把这些字节任意拆分或合并。
 
-This package does not bundle a transport. Consumers provide a byte-stream transport that preserves byte order and reports stream closure. Custom transports must handle arbitrary frame fragmentation and coalescing.
+本包不自带传输实现。调用方需要提供能保持字节顺序、并能报告流关闭的字节流传输。自定义传输必须处理任意的帧分片与合并。
 
-All transports are untrusted. Configure matching frame limits and enforce access controls appropriate for the transport before exposing a connection to the protocol. Unix sockets can use filesystem permissions, while network transports can authenticate during connection establishment.
+所有传输都应视为不可信。在把连接交给协议之前，配置匹配的帧长度上限，并按传输方式实施相应的访问控制。Unix socket 可以用文件系统权限；网络传输可以在建立连接时认证。
 
-## Encoding and framing
+## 编码与分帧
 
-`encodeCbor()` and `decodeCbor()` implement the protocol's strict RFC 8949 subset. `encodeFrame()` and `FrameDecoder` handle framing independently of schemas and CBOR.
+`encodeCbor()` 和 `decodeCbor()` 实现协议所采用的严格 RFC 8949 子集。`encodeFrame()` 和 `FrameDecoder` 独立于 schema 和 CBOR 处理分帧。
 
-The CBOR subset supports:
+该 CBOR 子集支持：
 
-- `null` and booleans
-- finite numbers, with integers restricted to JavaScript's safe range and non-integers encoded as float64
-- UTF-8 strings
-- `Uint8Array` byte strings
-- definite-length arrays
-- definite-length maps represented by objects with unique string keys
+- `null` 和布尔值
+- 有限数字：整数限制在 JavaScript 安全整数范围内，非整数编码为 float64
+- UTF-8 字符串
+- `Uint8Array` 字节串
+- 定长数组
+- 定长 map，表示为键唯一的字符串键对象
 
-Undefined object properties are omitted. JSON-valued protocol fields reject CBOR byte strings and non-plain objects. Top-level undefined, undefined array entries, sparse arrays, non-finite or unsafe numbers, tags, indefinite-length items, malformed UTF-8, trailing data, excessive nesting, and oversized values are rejected.
+未定义的对象属性会被省略。值为 JSON 的协议字段会拒绝 CBOR 字节串和非普通对象。顶层 undefined、数组中的 undefined 元素、稀疏数组、非有限或不安全数字、tag、不定长项、畸形 UTF-8、尾随数据、过深嵌套以及过大的值都会被拒绝。
 
-Default limits are 16 MiB per CBOR payload/frame, 1,000,000 array elements or map entries, and 64 nested item levels. Options can configure these limits. A frame decoder validates the declared length before buffering payload bytes.
+默认限制为每个 CBOR payload/帧 16 MiB、1,000,000 个数组元素或 map 条目、以及 64 层嵌套。这些限制可通过选项配置。帧解码器会在缓冲 payload 字节之前先校验声明的长度。
 
-All schemas reject unknown object properties. The protocol is experimental and has no compatibility guarantees.
+所有 schema 都会拒绝未知对象属性。该协议仍是实验性的，不提供兼容性保证。

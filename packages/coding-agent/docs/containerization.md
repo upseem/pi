@@ -1,27 +1,30 @@
-# Containerization
+<a id="containerization"></a>
+# 容器化
 
-Pi runs with all permissions by default, but in some cases, you will want to have more control over what directories Pi can write to and which accesses it has.
+Pi 默认以全部权限运行，但有时需要更精细地控制 Pi 可写入的目录以及它拥有的访问权限。
 
-There are two general options. You can either
-1. run the whole `pi` process inside an isolated environment, or
-2. run `pi` on the host and route tool execution into an isolated environment.
+一般有两种做法。你可以
+1. 把整个 `pi` 进程放进隔离环境，或
+2. 在宿主机运行 `pi`，把工具执行转发到隔离环境。
 
-## Choose a pattern
+<a id="choose-a-pattern"></a>
+## 选择模式
 
-| Pattern | What is isolated | Best for | Notes |
+| 模式 | 隔离范围 | 适用场景 | 说明 |
 | --- | --- | --- | --- |
-| Gondolin extension | Built-in tools and `!` commands | Local micro-VM isolation while keeping auth on host | See [`examples/extensions/gondolin/`](../examples/extensions/gondolin/). |
-| Plain Docker | Whole `pi` process in a local container | Simple local isolation | Provider API keys enter the container. |
-| OpenShell | Whole `pi` process in a policy-controlled sandbox | Local or remote managed sandbox | Requires an OpenShell gateway |
+| Gondolin 扩展 | 内置工具和 `!` 命令 | 本地微型虚拟机隔离，认证留在宿主机 | 见 [`examples/extensions/gondolin/`](../examples/extensions/gondolin/)。 |
+| 普通 Docker | 整个 `pi` 进程在本地容器中 | 简单的本地隔离 | 提供商 API key 会进入容器。 |
+| OpenShell | 整个 `pi` 进程在受策略控制的沙箱中 | 本地或远程托管沙箱 | 需要 OpenShell 网关 |
 
-Extensions run wherever the `pi` process runs. If you run host `pi` with a tool-routing extension, other custom extension tools still run on the host unless they also delegate their operations.
+扩展运行在 `pi` 进程所在之处。如果在宿主机 `pi` 上使用工具转发扩展，其他自定义扩展工具仍在宿主机运行，除非它们也委托了自己的操作。
 
+<a id="gondolin"></a>
 ## Gondolin
 
-[Gondolin](https://github.com/earendil-works/gondolin) is a local Linux micro-VM.
-Use the [example extension](../examples/extensions/gondolin) when you want `pi` on the host but all built-in tools routed into the VM.
+[Gondolin](https://github.com/earendil-works/gondolin) 是本地 Linux 微型虚拟机。
+若希望 `pi` 留在宿主机、但把所有内置工具转发到虚拟机，使用[示例扩展](../examples/extensions/gondolin)。
 
-Setup:
+设置：
 
 ```bash
 cp -R packages/coding-agent/examples/extensions/gondolin ~/.pi/agent/extensions/gondolin
@@ -29,24 +32,25 @@ cd ~/.pi/agent/extensions/gondolin
 npm install --ignore-scripts
 ```
 
-Run from the project you want mounted:
+从要挂载的项目目录运行：
 
 ```bash
 cd /path/to/project
 pi -e ~/.pi/agent/extensions/gondolin
 ```
 
-The extension mounts the host cwd at `/workspace` in the VM and overrides `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls`.
-User `!` commands are routed into the VM, as well.
-File changes under `/workspace` write through to the host.
+该扩展将宿主机 cwd 挂载到虚拟机的 `/workspace`，并覆盖 `read`、`write`、`edit`、`bash`、`grep`、`find` 和 `ls`。
+用户的 `!` 命令也会转发到虚拟机。
+`/workspace` 下的文件更改会写回宿主机。
 
-Requirements: Node.js >= 23.6.0 for `@earendil-works/gondolin`, plus QEMU (requires installation through your package manager).
+要求：`@earendil-works/gondolin` 需要 Node.js >= 23.6.0，以及 QEMU（需通过包管理器安装）。
 
-## Plain Docker
+<a id="plain-docker"></a>
+## 普通 Docker
 
-Run the whole `pi` process in Docker when you want the simplest local container boundary.
+若只需要最简单的本地容器边界，把整个 `pi` 进程放进 Docker。
 
-`Dockerfile.pi`:
+`Dockerfile.pi`：
 
 ```dockerfile
 FROM node:24-bookworm-slim
@@ -60,7 +64,7 @@ WORKDIR /workspace
 ENTRYPOINT ["pi"]
 ```
 
-Build and run:
+构建并运行：
 
 ```bash
 docker build -t pi-sandbox -f Dockerfile.pi .
@@ -72,40 +76,41 @@ docker run --rm -it \
   pi-sandbox
 ```
 
-The `-v "$PWD:/workspace"` mounts your current directory into the container at /workspace such that reads and writes in `/workspace` inside Docker directly affect your host files, like in the Gondolin example.
+`-v "$PWD:/workspace"` 将当前目录挂载到容器内的 /workspace，因此 Docker 内对 `/workspace` 的读写会直接作用于宿主机文件，与 Gondolin 示例类似。
 
-Use a named volume for `/root/.pi/agent` if you want container-local settings and sessions. Mounting your host `~/.pi/agent` exposes host auth and session files to the container.
+若希望设置和会话只存在于容器内，为 `/root/.pi/agent` 使用命名卷。挂载宿主机的 `~/.pi/agent` 会把宿主机的认证和会话文件暴露给容器。
 
+<a id="openshell"></a>
 ## OpenShell
 
-Use [NVIDIA OpenShell](https://docs.nvidia.com/openshell/about/overview) when you want a policy-controlled sandbox with filesystem, process, network, credential, and inference controls.
-OpenShell can run sandboxes through a local gateway backed by Docker, Podman, or a VM runtime, or through a remote Kubernetes gateway.
+若需要带文件系统、进程、网络、凭据和推理控制的策略沙箱，使用 [NVIDIA OpenShell](https://docs.nvidia.com/openshell/about/overview)。
+OpenShell 可通过由 Docker、Podman 或虚拟机运行时支撑的本地网关运行沙箱，也可通过远程 Kubernetes 网关运行。
 
-Every sandbox requires an active gateway.
-Register and select one before creating a sandbox:
+每个沙箱都需要一个活动网关。
+创建沙箱前先注册并选择网关：
 
 ```bash
 openshell gateway add <gateway-url> --name <name>
 openshell gateway select <name>
 ```
 
-Launch `pi` inside an OpenShell sandbox:
+在 OpenShell 沙箱中启动 `pi`：
 
 ```bash
 openshell sandbox create --name pi-sandbox --from pi -- pi
 ```
 
-In this pattern, the whole `pi` process runs inside the sandbox.
-Built-in tools, `!` commands, and extension tools execute inside the OpenShell boundary.
+在此模式下，整个 `pi` 进程运行在沙箱内。
+内置工具、`!` 命令和扩展工具都在 OpenShell 边界内执行。
 
-If the gateway is remote, project files are not bind-mounted from the host, meaning writes in the sandbox are not reflected on your machine.
-Clone the repository inside the sandbox or use OpenShell file transfer commands:
+若网关在远程，项目文件不会从宿主机绑定挂载，因此沙箱内的写入不会反映到本机。
+在沙箱内克隆仓库，或使用 OpenShell 文件传输命令：
 
 ```bash
 openshell sandbox upload pi-sandbox ./repo /workspace
 openshell sandbox download pi-sandbox /workspace/repo ./repo-out
 ```
 
-OpenShell providers can keep raw model API keys outside the sandbox.
-When inference routing is configured, code inside the sandbox can call `https://inference.local`, and the gateway injects the configured provider credentials upstream.
-Configure Pi to use the corresponding OpenAI-compatible or Anthropic-compatible endpoint if you want model traffic to use this route.
+OpenShell 提供商可以把原始模型 API key 留在沙箱外。
+配置推理路由后，沙箱内的代码可以调用 `https://inference.local`，由网关向上游注入已配置的提供商凭据。
+若希望模型流量走这条路径，将 Pi 配置为对应的 OpenAI 兼容或 Anthropic 兼容端点。

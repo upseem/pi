@@ -1,15 +1,15 @@
 # @earendil-works/pi-client
 
-Transport-neutral client for remote pi sessions. `PiClient` exchanges length-prefixed CBOR messages through a small `ByteTransport` interface. The package has no Node-specific imports.
+面向远程 pi 会话、与传输无关的客户端。`PiClient` 通过一个很小的 `ByteTransport` 接口交换带长度前缀的 CBOR 消息。本包没有 Node 特有的导入。
 
 ```ts
 import { PiClient, type ByteTransportFactory } from "@earendil-works/pi-client";
 
 const transportFactory: ByteTransportFactory = async (handlers) => {
-  // Connect using WebSocket, Unix socket, or another ordered byte transport.
+  // 使用 WebSocket、Unix socket 或其他有序字节传输进行连接。
   return {
     async send(chunk) {
-      // Deliver chunks in invocation order and honor backpressure.
+      // 按调用顺序投递分片，并尊重背压。
     },
     close() {},
   };
@@ -23,27 +23,27 @@ await session.prompt("Inspect this project");
 unsubscribe();
 ```
 
-Call `handlers.onData(chunk)` for inbound bytes, `handlers.onClose()` for an orderly terminal close, and `handlers.onError(error)` for transport failures. A factory must create a fresh transport for every connection attempt and complete any transport-specific authentication before resolving. For example, a WebSocket factory can provide credentials in its upgrade request.
+入站字节调用 `handlers.onData(chunk)`，有序关闭调用 `handlers.onClose()`，传输失败调用 `handlers.onError(error)`。工厂必须为每次连接尝试创建全新传输，并在 resolve 之前完成该传输特有的认证。例如，WebSocket 工厂可以在 upgrade 请求中提供凭据。
 
-`PiClient` does not reconnect automatically. Call `reconnect()` after disconnection. One connection can attach several sessions. Requests are correlated by ID. Server snapshots and successful response snapshots are authoritative, while progress events do not mutate snapshot state optimistically. Read cached session metadata from `client.snapshot?.sessions`; call `listSessions()` to request refreshed durable metadata from the server. Runtime state is available after acquiring a session.
+`PiClient` 不会自动重连。断开后需要调用 `reconnect()`。一条连接可以挂接多个会话。请求按 ID 关联。服务端快照和成功响应快照是权威状态，进度事件不会乐观地改写快照。缓存的会话元数据从 `client.snapshot?.sessions` 读取；调用 `listSessions()` 可向服务端请求刷新后的持久元数据。运行时状态在获取会话之后才可用。
 
-`acquireSession()` returns an independent `SessionLease`; leases cannot be constructed directly. Use `{ mode: "exclusive" }` for a lifecycle or mutation coordinator and `{ mode: "shared" }` when multiple low-level consumers intentionally share the session. Exclusive acquisition fails with `PiSessionOwnershipError` while any lease exists, and shared acquisition fails while an exclusive lease exists. `attachSession()` is a shared-acquisition convenience method. `createSession()` returns an exclusive lease for the newly created session.
+`acquireSession()` 返回独立的 `SessionLease`；lease 不能直接构造。生命周期或变更协调使用 `{ mode: "exclusive" }`；多个底层消费者有意共享会话时使用 `{ mode: "shared" }`。只要已有任意 lease，独占获取会以 `PiSessionOwnershipError` 失败；已有独占 lease 时，共享获取也会失败。`attachSession()` 是共享获取的便捷方法。`createSession()` 为新创建的会话返回独占 lease。
 
-Calling `dispose()` or `detach()` releases only that lease. A lease rejects commands as soon as release begins. The client sends the protocol detach request after the final lease is released. If explicit `detach()` fails, the lease becomes active again for retry. If cleanup-oriented `dispose()` fails, it reports the protocol error but relinquishes local ownership; `PiClient` reconciles the failed protocol cleanup before the next acquisition. A released lease becomes unavailable without affecting other shared leases. Server removal or disconnection invalidates every lease for the affected attachment, and disposing an invalidated lease is a no-op. Commands fail with `PiDisconnectedError` while the client is disconnected and `PiSessionDetachedError` when the client is connected but a lease is releasing, released, or invalidated. Leases implement `AsyncDisposable`.
+调用 `dispose()` 或 `detach()` 只释放该 lease。lease 一旦开始释放就会拒绝后续命令。最后一个 lease 释放后，客户端才会发送协议层的 detach 请求。显式 `detach()` 失败时，lease 会重新变为可用以便重试。面向清理的 `dispose()` 失败时会报告协议错误，但会放弃本地所有权；`PiClient` 会在下一次获取之前调和这次失败的协议清理。已释放的 lease 会变为不可用，但不影响其他共享 lease。服务端移除或断开连接会使该挂接上的所有 lease 失效；对已失效 lease 调用 dispose 是空操作。客户端断开时命令会以 `PiDisconnectedError` 失败；客户端仍连接但 lease 正在释放、已释放或已失效时，命令会以 `PiSessionDetachedError` 失败。lease 实现了 `AsyncDisposable`。
 
-`subscribe()` observes authoritative snapshots. `onEvent()` observes protocol events. Both return an unsubscribe function. Structured errors returned by the server are exposed as `PiServerError`.
+`subscribe()` 观察权威快照。`onEvent()` 观察协议事件。二者都返回取消订阅函数。服务端返回的结构化错误会以 `PiServerError` 暴露。
 
-## Limits and security
+## 限制与安全
 
-`PiClientOptions.maxFrameLength` bounds inbound and outbound CBOR payloads. Configure matching limits on the client and server. Transports should separately bound queued outbound bytes and preserve send order.
+`PiClientOptions.maxFrameLength` 限制入站和出站 CBOR payload。客户端和服务端应配置匹配的上限。传输层应另外限制排队中的出站字节，并保持发送顺序。
 
-Treat peers as untrusted. Use a secure transport with appropriate access controls and authenticate during transport establishment.
+把对端视为不可信。使用带适当访问控制的安全传输，并在建立传输时完成认证。
 
-Subscriber exceptions are isolated from protocol state. Set `onListenerError` in `PiClientOptions` to report them to application logging or diagnostics.
+订阅者抛出的异常与协议状态隔离。可在 `PiClientOptions` 中设置 `onListenerError`，把它们报告到应用日志或诊断系统。
 
-## Unix-domain sockets
+## Unix domain socket
 
-Node.js and Bun consumers can use the separately exported Unix-domain socket transport:
+Node.js 和 Bun 的调用方可以使用单独导出的 Unix domain socket 传输：
 
 ```ts
 import { PiClient } from "@earendil-works/pi-client";
@@ -58,6 +58,6 @@ const client = new PiClient({
 await client.connect();
 ```
 
-`maxPendingBytes` bounds queued outbound data. It defaults to four times the protocol frame limit. The transport preserves send order and waits for socket backpressure before resolving each send.
+`maxPendingBytes` 限制排队中的出站数据，默认是协议帧上限的四倍。传输保持发送顺序，并在每个 send resolve 之前等待 socket 背压。
 
-The `@earendil-works/pi-client` root remains transport- and runtime-neutral. Importing the Node-compatible transport requires the explicit `@earendil-works/pi-client/unix` subpath.
+`@earendil-works/pi-client` 根入口仍与传输和运行时无关。导入兼容 Node 的传输时，必须显式使用 `@earendil-works/pi-client/unix` 子路径。

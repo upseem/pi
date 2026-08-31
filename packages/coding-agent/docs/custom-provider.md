@@ -1,36 +1,40 @@
-# Custom Providers
+<a id="custom-providers"></a>
+# 自定义提供商
 
-Extensions can register custom model providers via `pi.registerProvider()`. This enables:
+扩展可通过 `pi.registerProvider()` 注册自定义模型提供商。用途包括：
 
-- **Proxies** - Route requests through corporate proxies or API gateways
-- **Custom endpoints** - Use self-hosted or private model deployments
-- **OAuth/SSO** - Add authentication flows for enterprise providers
-- **Custom APIs** - Implement streaming for non-standard LLM APIs
+- **代理** - 把请求转到企业代理或 API 网关
+- **自定义端点** - 使用自托管或私有模型部署
+- **OAuth/SSO** - 为企业提供商加入认证流程
+- **自定义 API** - 为非标准 LLM API 实现流式输出
 
-## Example Extensions
+<a id="example-extensions"></a>
+## 扩展示例
 
-See these complete provider examples:
+完整提供商示例：
 
 - [`examples/extensions/custom-provider-anthropic/`](../examples/extensions/custom-provider-anthropic/)
 - [`examples/extensions/custom-provider-gitlab-duo/`](../examples/extensions/custom-provider-gitlab-duo/)
 
-## Table of Contents
+<a id="table-of-contents"></a>
+## 目录
 
-- [Example Extensions](#example-extensions)
-- [Quick Reference](#quick-reference)
-- [Override Existing Provider](#override-existing-provider)
-- [Register New Provider](#register-new-provider)
-- [Unregister Provider](#unregister-provider)
-- [OAuth Support](#oauth-support)
-- [Custom Streaming API](#custom-streaming-api)
-- [Context Overflow Errors](#context-overflow-errors)
-- [Testing Your Implementation](#testing-your-implementation)
-- [Config Reference](#config-reference)
-- [Model Definition Reference](#model-definition-reference)
+- [扩展示例](#example-extensions)
+- [快速参考](#quick-reference)
+- [覆盖现有提供商](#override-existing-provider)
+- [注册新提供商](#register-new-provider)
+- [注销提供商](#unregister-provider)
+- [OAuth 支持](#oauth-support)
+- [自定义流式 API](#custom-streaming-api)
+- [上下文溢出错误](#context-overflow-errors)
+- [测试实现](#testing-your-implementation)
+- [配置参考](#config-reference)
+- [模型定义参考](#model-definition-reference)
 
-## Quick Reference
+<a id="quick-reference"></a>
+## 快速参考
 
-Extensions can register either a complete pi-ai `Provider` or use the legacy provider-config form. Prefer a complete provider when custom authentication, filtering, refresh, or streaming behavior is required. Pi composes `models.json` overrides above registered native providers.
+扩展可以注册完整的 pi-ai `Provider`，也可以使用旧版 provider-config 形式。需要自定义认证、过滤、刷新或流式行为时，优先用完整提供商。Pi 会把 `models.json` 覆盖叠在已注册的原生提供商之上。
 
 ```typescript
 import { createProvider, openAICompletionsApi } from "@earendil-works/pi-ai";
@@ -61,13 +65,13 @@ export default function (pi: ExtensionAPI) {
     api: openAICompletionsApi()
   }));
 
-  // Legacy provider-config form:
-  // Override baseUrl for existing provider
+  // 旧版 provider-config 形式：
+  // 覆盖现有提供商的 baseUrl
   pi.registerProvider("anthropic", {
     baseUrl: "https://proxy.example.com"
   });
 
-  // Register new provider with models
+  // 用 models 注册新提供商
   pi.registerProvider("my-provider", {
     name: "My Provider",
     baseUrl: "https://api.example.com",
@@ -88,41 +92,43 @@ export default function (pi: ExtensionAPI) {
 }
 ```
 
-The extension factory can also be `async`. For dynamic model discovery, fetch and register models in the factory instead of `session_start`. pi waits for the factory before startup continues, so the provider is available during interactive startup and to `pi --list-models`.
+扩展工厂也可以是 `async`。若要动态发现模型，在工厂里拉取并注册，不要放到 `session_start`。pi 会等工厂完成后再继续启动，因此提供商在交互启动期间以及 `pi --list-models` 中都可用。
 
-## Override Existing Provider
+<a id="override-existing-provider"></a>
+## 覆盖现有提供商
 
-The simplest use case: redirect an existing provider through a proxy.
+最简单的用法：把现有提供商转到代理。
 
 ```typescript
-// All Anthropic requests now go through your proxy
+// 所有 Anthropic 请求现在走你的代理
 pi.registerProvider("anthropic", {
   baseUrl: "https://proxy.example.com"
 });
 
-// Add custom headers to OpenAI requests
+// 为 OpenAI 请求添加自定义 headers
 pi.registerProvider("openai", {
   headers: {
     "X-Custom-Header": "value"
   }
 });
 
-// Both baseUrl and headers
+// 同时设置 baseUrl 和 headers
 pi.registerProvider("google", {
   baseUrl: "https://ai-gateway.corp.com/google",
   headers: {
-    "X-Corp-Auth": "$CORP_AUTH_TOKEN"  // env var or literal
+    "X-Corp-Auth": "$CORP_AUTH_TOKEN"  // 环境变量或字面量
   }
 });
 ```
 
-When only `baseUrl` and/or `headers` are provided (no `models`), all existing models for that provider are preserved with the new endpoint.
+只提供 `baseUrl` 和/或 `headers`（没有 `models`）时，该提供商的现有模型全部保留，只改端点。
 
-## Register New Provider
+<a id="register-new-provider"></a>
+## 注册新提供商
 
-To add a completely new provider, specify `models` along with the required configuration.
+要添加全新提供商，需同时指定 `models` 和必要配置。
 
-If the model list comes from a remote endpoint, use an async extension factory:
+若模型列表来自远程端点，使用 async 扩展工厂：
 
 ```typescript
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -155,21 +161,21 @@ export default async function (pi: ExtensionAPI) {
 }
 ```
 
-This registers the fetched models before startup finishes.
+这会在启动结束前注册拉取到的模型。
 
 ```typescript
 pi.registerProvider("my-llm", {
   baseUrl: "https://api.my-llm.com/v1",
-  apiKey: "$MY_LLM_API_KEY",  // env var reference
-  api: "openai-completions",  // which streaming API to use
+  apiKey: "$MY_LLM_API_KEY",  // 环境变量引用
+  api: "openai-completions",  // 使用哪种流式 API
   models: [
     {
       id: "my-llm-large",
       name: "My LLM Large",
-      reasoning: true,        // supports extended thinking
+      reasoning: true,        // 支持扩展思考
       input: ["text", "image"],
       cost: {
-        input: 3.0,           // $/million tokens
+        input: 3.0,           // 美元/百万 tokens
         output: 15.0,
         cacheRead: 0.3,
         cacheWrite: 3.75
@@ -181,16 +187,17 @@ pi.registerProvider("my-llm", {
 });
 ```
 
-When `models` is provided, it **replaces** all existing models for that provider.
+提供 `models` 时，它会**替换**该提供商的全部现有模型。
 
-`apiKey` and custom header values use the same config value syntax as `models.json`: `!command` at the start executes a command for the whole value, `$ENV_VAR` and `${ENV_VAR}` interpolate environment variables, `$$` emits a literal `$`, and `$!` emits a literal `!`.
+`apiKey` 和自定义 header 值使用与 `models.json` 相同的配置值语法：以 `!command` 开头会把整个值当命令执行，`$ENV_VAR` 和 `${ENV_VAR}` 插值环境变量，`$$` 产出字面 `$`，`$!` 产出字面 `!`。
 
-## Unregister Provider
+<a id="unregister-provider"></a>
+## 注销提供商
 
-Use `pi.unregisterProvider(name)` to remove a provider that was previously registered via `pi.registerProvider(name, ...)`:
+用 `pi.unregisterProvider(name)` 移除先前通过 `pi.registerProvider(name, ...)` 注册的提供商：
 
 ```typescript
-// Register
+// 注册
 pi.registerProvider("my-llm", {
   baseUrl: "https://api.my-llm.com/v1",
   apiKey: "$MY_LLM_API_KEY",
@@ -208,38 +215,39 @@ pi.registerProvider("my-llm", {
   ]
 });
 
-// Later, remove it
+// 之后移除
 pi.unregisterProvider("my-llm");
 ```
 
-Unregistering removes that provider's dynamic models, API key fallback, OAuth provider registration, and custom stream handler registrations. Any built-in models or provider behavior that were overridden are restored.
+注销会移除该提供商的动态模型、API key 回退、OAuth 提供商注册，以及自定义 stream handler 注册。被覆盖的内置模型或提供商行为会恢复。
 
-Calls made after the initial extension load phase are applied immediately, so no `/reload` is required.
+在初始扩展加载阶段之后的调用会立即生效，无需 `/reload`。
 
-### API Types
+<a id="api-types"></a>
+### API 类型
 
-The `api` field determines which streaming implementation is used:
+`api` 字段决定使用哪种流式实现：
 
-| API | Use for |
+| API | 用于 |
 |-----|---------|
-| `anthropic-messages` | Anthropic Claude API and compatibles |
-| `openai-completions` | OpenAI Chat Completions API and compatibles |
+| `anthropic-messages` | Anthropic Claude API 及兼容实现 |
+| `openai-completions` | OpenAI Chat Completions API 及兼容实现 |
 | `openai-responses` | OpenAI Responses API |
 | `azure-openai-responses` | Azure OpenAI Responses API |
 | `openai-codex-responses` | OpenAI Codex Responses API |
-| `mistral-conversations` | Native Mistral Chat Completions streaming |
+| `mistral-conversations` | 原生 Mistral Chat Completions 流式 |
 | `google-generative-ai` | Google Generative AI API |
 | `google-vertex` | Google Vertex AI API |
 | `bedrock-converse-stream` | Amazon Bedrock Converse API |
 
-Most OpenAI-compatible providers work with `openai-completions`. Use model-level `thinkingLevelMap` for model-specific thinking levels, and `compat` for provider quirks. The `xhigh` and `max` levels are opt-in, require non-null map entries, and may be separated by unsupported holes:
+多数 OpenAI 兼容提供商可用 `openai-completions`。用模型级 `thinkingLevelMap` 处理特定模型的思考级别，用 `compat` 处理提供商差异。`xhigh` 和 `max` 为 opt-in，需要非 null 映射项，且中间可以有不支持的空档：
 
 ```typescript
 models: [{
   id: "custom-model",
   // ...
   reasoning: true,
-  thinkingLevelMap: {              // map pi levels to provider values; null hides unsupported levels
+  thinkingLevelMap: {              // 把 pi 级别映射到提供商值；null 隐藏不支持的级别
     minimal: null,
     low: null,
     medium: null,
@@ -248,44 +256,46 @@ models: [{
     max: "max"
   },
   compat: {
-    supportsDeveloperRole: false,   // use "system" instead of "developer"
+    supportsDeveloperRole: false,   // 用 "system" 替代 "developer"
     supportsReasoningEffort: true,
-    maxTokensField: "max_tokens",   // instead of "max_completion_tokens"
-    requiresToolResultName: true,   // tool results need name field
-    thinkingFormat: "qwen",        // top-level enable_thinking: true
-    cacheControlFormat: "anthropic" // Anthropic-style cache_control markers
+    maxTokensField: "max_tokens",   // 替代 "max_completion_tokens"
+    requiresToolResultName: true,   // tool results 需要 name 字段
+    thinkingFormat: "qwen",        // 顶层 enable_thinking: true
+    cacheControlFormat: "anthropic" // Anthropic 风格的 cache_control 标记
   }
 }]
 ```
 
-Use `openrouter` for OpenRouter-style `reasoning: { effort }` controls. Use `together` for Together-style `reasoning: { enabled }` controls; with `supportsReasoningEffort`, it also sends `reasoning_effort`. Use `qwen-chat-template` for local Qwen-compatible servers that read `chat_template_kwargs.enable_thinking` and need `preserve_thinking`.
-Use `cacheControlFormat: "anthropic"` for OpenAI-compatible providers that expose Anthropic-style prompt caching via `cache_control` on the system prompt, last tool definition, and last user, assistant, or tool-result text content.
+用 `openrouter` 处理 OpenRouter 风格的 `reasoning: { effort }` 控制。用 `together` 处理 Together 风格的 `reasoning: { enabled }` 控制；在 `supportsReasoningEffort` 开启时也会发送 `reasoning_effort`。对读取 `chat_template_kwargs.enable_thinking` 且需要 `preserve_thinking` 的本地 Qwen 兼容服务器，使用 `qwen-chat-template`。
+对通过系统提示、最后一个工具定义，以及最后一条 user、assistant 或 tool-result 文本内容上的 `cache_control` 暴露 Anthropic 风格提示缓存的 OpenAI 兼容提供商，使用 `cacheControlFormat: "anthropic"`。
 
-For Anthropic-compatible providers using `api: "anthropic-messages"`, set `compat.forceAdaptiveThinking: true` on models or providers whose upstream model requires adaptive thinking (`thinking.type: "adaptive"` plus `output_config.effort`). Built-in adaptive Claude models set this automatically. Set `compat.allowEmptySignature: true` only for providers that emit empty thinking signatures and expect `signature: ""` on replay.
+对使用 `api: "anthropic-messages"` 的 Anthropic 兼容提供商，若上游模型要求 adaptive thinking（`thinking.type: "adaptive"` 加上 `output_config.effort`），在模型或提供商上设置 `compat.forceAdaptiveThinking: true`。内置 adaptive Claude 模型会自动设置。仅当提供商发出空 thinking signature 并在回放时期望 `signature: ""` 时，才设置 `compat.allowEmptySignature: true`。
 
-> Migration note: Mistral moved from `openai-completions` to `mistral-conversations`.
-> Use `mistral-conversations` for native Mistral models.
-> If you intentionally route Mistral-compatible/custom endpoints through `openai-completions`, set `compat` flags explicitly as needed.
+> 迁移说明：Mistral 已从 `openai-completions` 迁到 `mistral-conversations`。
+> 原生 Mistral 模型请使用 `mistral-conversations`。
+> 若有意把 Mistral 兼容/自定义端点走 `openai-completions`，按需显式设置 `compat` 标志。
 
-### Auth Header
+<a id="auth-header"></a>
+### 认证头
 
-If your provider expects `Authorization: Bearer <key>` but doesn't use a standard API, set `authHeader: true`:
+若提供商期望 `Authorization: Bearer <key>` 但不是标准 API，设置 `authHeader: true`：
 
 ```typescript
 pi.registerProvider("custom-api", {
   baseUrl: "https://api.example.com",
   apiKey: "$MY_API_KEY",
-  authHeader: true,  // adds Authorization: Bearer header
+  authHeader: true,  // 添加 Authorization: Bearer header
   api: "openai-completions",
   models: [...]
 });
 ```
 
-The key is resolved for each request. An explicit request `Authorization` header takes precedence over the generated value.
+每个请求都会解析 key。请求上显式的 `Authorization` header 优先于生成值。
 
-## OAuth Support
+<a id="oauth-support"></a>
+## OAuth 支持
 
-Add OAuth/SSO authentication that integrates with `/login`:
+加入与 `/login` 集成的 OAuth/SSO 认证：
 
 ```typescript
 import type { OAuthCredentials, OAuthLoginCallbacks } from "@earendil-works/pi-ai";
@@ -321,7 +331,7 @@ pi.registerProvider("corporate-ai", {
         code = await callbacks.onPrompt({ message: "Enter SSO code:" });
       }
 
-      // Exchange for tokens (your implementation)
+      // 用 code 换 token（由你实现）
       const tokens = await exchangeCodeForTokens(code);
 
       return {
@@ -347,18 +357,19 @@ pi.registerProvider("corporate-ai", {
 });
 ```
 
-After registration, users can authenticate via `/login corporate-ai`.
+注册后，用户可通过 `/login corporate-ai` 认证。
 
+<a id="oauthlogincallbacks"></a>
 ### OAuthLoginCallbacks
 
-The `callbacks` object provides UI-neutral interactions for the provider-owned flow:
+`callbacks` 对象为提供商自有流程提供与 UI 无关的交互：
 
 ```typescript
 interface OAuthLoginCallbacks {
-  // Open URL in browser (for OAuth redirects)
+  // 在浏览器中打开 URL（OAuth 重定向）
   onAuth(params: { url: string }): void;
 
-  // Show device code (for device authorization flow)
+  // 显示设备码（设备授权流程）
   onDeviceCode(params: {
     userCode: string;
     verificationUri: string;
@@ -366,13 +377,13 @@ interface OAuthLoginCallbacks {
     expiresInSeconds?: number;
   }): void;
 
-  // Show transient progress
+  // 显示短暂进度
   onProgress?(message: string): void;
 
-  // Prompt user for input (for manual token entry)
+  // 提示用户输入（手动输入 token）
   onPrompt(params: { message: string }): Promise<string>;
 
-  // Show an interactive selector, e.g. to choose browser OAuth vs device code
+  // 显示交互式选择器，例如选择 browser OAuth 还是 device code
   onSelect(params: {
     message: string;
     options: { id: string; label: string }[];
@@ -380,23 +391,25 @@ interface OAuthLoginCallbacks {
 }
 ```
 
+<a id="oauthcredentials"></a>
 ### OAuthCredentials
 
-Credentials are persisted in `~/.pi/agent/auth.json`:
+凭据保存在 `~/.pi/agent/auth.json`：
 
 ```typescript
 interface OAuthCredentials {
-  refresh: string;   // Refresh token (for refreshToken())
-  access: string;    // Access token (returned by getApiKey())
-  expires: number;   // Expiration timestamp in milliseconds
+  refresh: string;   // Refresh token（供 refreshToken() 使用）
+  access: string;    // Access token（由 getApiKey() 返回）
+  expires: number;   // 过期时间戳，单位毫秒
 }
 ```
 
-## Custom Streaming API
+<a id="custom-streaming-api"></a>
+## 自定义流式 API
 
-For providers with non-standard APIs, implement `streamSimple`. Study the existing API implementations before writing your own:
+对非标准 API 的提供商，实现 `streamSimple`。写自己的实现前，先研究现有 API 实现：
 
-**Reference implementations:**
+**参考实现：**
 - [anthropic-messages.ts](https://github.com/earendil-works/pi-mono/blob/main/packages/ai/src/api/anthropic-messages.ts) - Anthropic Messages API
 - [mistral-conversations.ts](https://github.com/earendil-works/pi-mono/blob/main/packages/ai/src/api/mistral-conversations.ts) - Mistral Conversations API
 - [openai-completions.ts](https://github.com/earendil-works/pi-mono/blob/main/packages/ai/src/api/openai-completions.ts) - OpenAI Chat Completions
@@ -404,9 +417,10 @@ For providers with non-standard APIs, implement `streamSimple`. Study the existi
 - [google-generative-ai.ts](https://github.com/earendil-works/pi-mono/blob/main/packages/ai/src/api/google-generative-ai.ts) - Google Generative AI
 - [bedrock-converse-stream.ts](https://github.com/earendil-works/pi-mono/blob/main/packages/ai/src/api/bedrock-converse-stream.ts) - AWS Bedrock
 
-### Stream Pattern
+<a id="stream-pattern"></a>
+### 流模式
 
-All providers follow the same pattern:
+所有提供商遵循同一模式：
 
 ```typescript
 import {
@@ -427,7 +441,7 @@ function streamMyProvider(
   const stream = createAssistantMessageEventStream();
 
   (async () => {
-    // Initialize output message
+    // 初始化输出消息
     const output: AssistantMessage = {
       role: "assistant",
       content: [],
@@ -447,11 +461,11 @@ function streamMyProvider(
     };
 
     try {
-      // Push start event
+      // 推送 start 事件
       stream.push({ type: "start", partial: output });
 
-      // Make API request and process response...
-      // Push content events as they arrive and set stopReason from the terminal event.
+      // 发起 API 请求并处理响应...
+      // 随数据到达推送 content 事件，并从终止事件设置 stopReason。
       if (output.stopReason === "pending") {
         throw new Error("Provider stream ended without a stop reason");
       }
@@ -459,7 +473,7 @@ function streamMyProvider(
         throw new Error(output.errorMessage || "An unknown error occurred");
       }
 
-      // Push done event
+      // 推送 done 事件
       stream.push({
         type: "done",
         reason: output.stopReason,
@@ -478,53 +492,56 @@ function streamMyProvider(
 }
 ```
 
-### Event Types
+<a id="event-types"></a>
+### 事件类型
 
-Push events via `stream.push()` in this order:
+通过 `stream.push()` 按此顺序推送事件：
 
-1. `{ type: "start", partial: output }` - Stream started
+1. `{ type: "start", partial: output }` - 流已开始
 
-2. Content events (repeatable, track `contentIndex` for each block):
-   - `{ type: "text_start", contentIndex, partial }` - Text block started
-   - `{ type: "text_delta", contentIndex, delta, partial }` - Text chunk
-   - `{ type: "text_end", contentIndex, content, partial }` - Text block ended
-   - `{ type: "thinking_start", contentIndex, partial }` - Thinking started
-   - `{ type: "thinking_delta", contentIndex, delta, partial }` - Thinking chunk
-   - `{ type: "thinking_end", contentIndex, content, partial }` - Thinking ended
-   - `{ type: "toolcall_start", contentIndex, partial }` - Tool call started
-   - `{ type: "toolcall_delta", contentIndex, delta, partial }` - Tool call JSON chunk
-   - `{ type: "toolcall_end", contentIndex, toolCall, partial }` - Tool call ended
+2. 内容事件（可重复，每个块跟踪 `contentIndex`）：
+   - `{ type: "text_start", contentIndex, partial }` - 文本块开始
+   - `{ type: "text_delta", contentIndex, delta, partial }` - 文本分片
+   - `{ type: "text_end", contentIndex, content, partial }` - 文本块结束
+   - `{ type: "thinking_start", contentIndex, partial }` - 思考开始
+   - `{ type: "thinking_delta", contentIndex, delta, partial }` - 思考分片
+   - `{ type: "thinking_end", contentIndex, content, partial }` - 思考结束
+   - `{ type: "toolcall_start", contentIndex, partial }` - 工具调用开始
+   - `{ type: "toolcall_delta", contentIndex, delta, partial }` - 工具调用 JSON 分片
+   - `{ type: "toolcall_end", contentIndex, toolCall, partial }` - 工具调用结束
 
-3. `{ type: "done", reason, message }` or `{ type: "error", reason, error }` - Stream ended
+3. `{ type: "done", reason, message }` 或 `{ type: "error", reason, error }` - 流结束
 
-The `partial` field in each event contains the current `AssistantMessage` state. Update `output.content` as you receive data, then include `output` as the `partial`.
+每个事件中的 `partial` 字段是当前 `AssistantMessage` 状态。收到数据时更新 `output.content`，再把 `output` 作为 `partial`。
 
-### Content Blocks
+<a id="content-blocks"></a>
+### 内容块
 
-Add content blocks to `output.content` as they arrive:
+数据到达时向 `output.content` 添加内容块：
 
 ```typescript
-// Text block
+// 文本块
 output.content.push({ type: "text", text: "" });
 stream.push({ type: "text_start", contentIndex: output.content.length - 1, partial: output });
 
-// As text arrives
+// 文本到达时
 const block = output.content[contentIndex];
 if (block.type === "text") {
   block.text += delta;
   stream.push({ type: "text_delta", contentIndex, delta, partial: output });
 }
 
-// When block completes
+// 块完成时
 stream.push({ type: "text_end", contentIndex, content: block.text, partial: output });
 ```
 
-### Tool Calls
+<a id="tool-calls"></a>
+### 工具调用
 
-Tool calls require accumulating JSON and parsing:
+工具调用需要累积 JSON 并解析：
 
 ```typescript
-// Start tool call
+// 开始 tool call
 output.content.push({
   type: "toolCall",
   id: toolCallId,
@@ -533,7 +550,7 @@ output.content.push({
 });
 stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
 
-// Accumulate JSON
+// 累积 JSON
 let partialJson = "";
 partialJson += jsonDelta;
 try {
@@ -541,7 +558,7 @@ try {
 } catch {}
 stream.push({ type: "toolcall_delta", contentIndex, delta: jsonDelta, partial: output });
 
-// Complete
+// 完成
 stream.push({
   type: "toolcall_end",
   contentIndex,
@@ -550,9 +567,10 @@ stream.push({
 });
 ```
 
-### Usage and Cost
+<a id="usage-and-cost"></a>
+### 用量与费用
 
-Update usage from API response and calculate cost:
+根据 API 响应更新用量并计算费用：
 
 ```typescript
 output.usage.input = response.usage.input_tokens;
@@ -564,16 +582,17 @@ output.usage.totalTokens = output.usage.input + output.usage.output +
 calculateCost(model, output.usage);
 ```
 
-### Context Overflow Errors
+<a id="context-overflow-errors"></a>
+### 上下文溢出错误
 
-When a request exceeds the model's context window, pi can recover automatically by compacting the conversation and retrying. This recovery only kicks in if pi recognizes the failure as an overflow.
+请求超出模型上下文窗口时，pi 可以压缩对话并重试来自动恢复。只有 pi 把失败识别为溢出时，才会走这条恢复路径。
 
-Detection runs on the finalized assistant message:
+检测针对已定稿的 assistant 消息：
 
 - `stopReason === "error"`
-- `errorMessage` matches one of pi's known overflow patterns (see [`packages/ai/src/utils/overflow.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/ai/src/utils/overflow.ts))
+- `errorMessage` 匹配 pi 已知的溢出模式（见 [`packages/ai/src/utils/overflow.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/ai/src/utils/overflow.ts)）
 
-If your provider returns overflow errors with a message pi does not recognize, normalize the error from the same extension that registers the provider. Use a `message_end` handler to rewrite the assistant message so its `errorMessage` starts with a phrase pi recognizes. The generic fallback `context_length_exceeded` is the safest choice.
+若提供商返回的溢出错误信息 pi 无法识别，在注册该提供商的同一扩展里规范化错误。用 `message_end` handler 改写 assistant 消息，使其 `errorMessage` 以 pi 能识别的短语开头。通用回退 `context_length_exceeded` 最稳妥。
 
 ```typescript
 const MY_PROVIDER_OVERFLOW_PATTERN = /your provider's overflow phrase/i;
@@ -605,22 +624,23 @@ export default function (pi: ExtensionAPI) {
 }
 ```
 
-`message_end` runs before pi tracks the assistant message for auto-compaction, so the rewritten `errorMessage` is what pi checks. With this in place, pi will:
+`message_end` 在 pi 为自动压缩跟踪 assistant 消息之前运行，因此 pi 检查的是改写后的 `errorMessage`。设置之后，pi 会：
 
-1. Detect the overflow from `errorMessage`.
-2. Drop the failed assistant message from live context.
-3. Run compaction.
-4. Retry the request once.
+1. 从 `errorMessage` 检测溢出。
+2. 从实时上下文中丢弃失败的 assistant 消息。
+3. 执行压缩。
+4. 重试该请求一次。
 
-Guard the rewrite carefully:
+改写时要严格设限：
 
-- Scope it to your provider (`message.provider` and `ctx.model?.provider`) so unrelated errors from other providers are untouched.
-- Match a provider-specific pattern, not pi's generic overflow patterns. Rewriting rate-limit or throttling errors (`rate limit`, `too many requests`) would falsely trigger compaction instead of pi's normal retry-with-backoff path.
-- Skip when `errorMessage` already includes `context_length_exceeded` so the handler is idempotent.
+- 限定到你的提供商（`message.provider` 和 `ctx.model?.provider`），不要动其他提供商的无关错误。
+- 匹配提供商特有模式，不要匹配 pi 的通用溢出模式。把限流或节流错误（`rate limit`、`too many requests`）改写成溢出会误触发压缩，而不是 pi 正常的退避重试。
+- 若 `errorMessage` 已包含 `context_length_exceeded` 则跳过，保证 handler 幂等。
 
-### Registration
+<a id="registration"></a>
+### 注册
 
-Register your stream function:
+注册你的 stream 函数：
 
 ```typescript
 pi.registerProvider("my-provider", {
@@ -632,59 +652,61 @@ pi.registerProvider("my-provider", {
 });
 ```
 
-## Testing Your Implementation
+<a id="testing-your-implementation"></a>
+## 测试实现
 
-Test your provider against the same test suites used by built-in providers. Copy and adapt these test files from [packages/ai/test/](https://github.com/earendil-works/pi-mono/tree/main/packages/ai/test):
+用内置提供商同一套测试来测你的提供商。从 [packages/ai/test/](https://github.com/earendil-works/pi-mono/tree/main/packages/ai/test) 复制并改编这些测试文件：
 
-| Test | Purpose |
+| 测试 | 用途 |
 |------|---------|
-| `stream.test.ts` | Basic streaming, text output |
-| `tokens.test.ts` | Token counting and usage |
-| `abort.test.ts` | AbortSignal handling |
-| `empty.test.ts` | Empty/minimal responses |
-| `context-overflow.test.ts` | Context window limits |
-| `image-limits.test.ts` | Image input handling |
-| `unicode-surrogate.test.ts` | Unicode edge cases |
-| `tool-call-without-result.test.ts` | Tool call edge cases |
-| `image-tool-result.test.ts` | Images in tool results |
-| `total-tokens.test.ts` | Total token calculation |
-| `cross-provider-handoff.test.ts` | Context handoff between providers |
+| `stream.test.ts` | 基本流式、文本输出 |
+| `tokens.test.ts` | Token 计数与用量 |
+| `abort.test.ts` | AbortSignal 处理 |
+| `empty.test.ts` | 空/最小响应 |
+| `context-overflow.test.ts` | 上下文窗口限制 |
+| `image-limits.test.ts` | 图像输入处理 |
+| `unicode-surrogate.test.ts` | Unicode 边界情况 |
+| `tool-call-without-result.test.ts` | 工具调用边界情况 |
+| `image-tool-result.test.ts` | 工具结果中的图像 |
+| `total-tokens.test.ts` | 总 token 计算 |
+| `cross-provider-handoff.test.ts` | 提供商之间的上下文交接 |
 
-Run tests with your provider/model pairs to verify compatibility.
+用你的提供商/模型组合跑测试以验证兼容性。
 
-## Config Reference
+<a id="config-reference"></a>
+## 配置参考
 
 ```typescript
 interface ProviderConfig {
-  /** Display name for the provider in UI such as /login. */
+  /** 提供商在 /login 等 UI 中的显示名称。 */
   name?: string;
 
-  /** API endpoint URL. Required when defining models. */
+  /** API 端点 URL。定义 models 时必填。 */
   baseUrl?: string;
 
-  /** API key literal, env interpolation ($ENV_VAR or ${ENV_VAR}), or !command. Required when defining models (unless oauth). */
+  /** API key 字面量、环境插值（$ENV_VAR 或 ${ENV_VAR}），或 !command。定义 models 时必填（除非有 oauth）。 */
   apiKey?: string;
 
-  /** API type for streaming. Required at provider or model level when defining models. */
+  /** 流式 API 类型。定义 models 时，提供商或模型级必须有。 */
   api?: Api;
 
-  /** Custom streaming implementation for non-standard APIs. */
+  /** 非标准 API 的自定义流式实现。 */
   streamSimple?: (
     model: Model<Api>,
     context: Context,
     options?: SimpleStreamOptions
   ) => AssistantMessageEventStream;
 
-  /** Custom headers to include in requests. Values use the same resolution syntax as apiKey. */
+  /** 请求中包含的自定义 headers。值使用与 apiKey 相同的解析语法。 */
   headers?: Record<string, string>;
 
-  /** If true, adds Authorization: Bearer header with the resolved API key. */
+  /** 为 true 时，用解析后的 API key 添加 Authorization: Bearer header。 */
   authHeader?: boolean;
 
-  /** Models to register. If provided, replaces all existing models for this provider. */
+  /** 要注册的模型。若提供，会替换该提供商的全部现有模型。 */
   models?: ProviderModelConfig[];
 
-  /** OAuth provider for /login support. */
+  /** 用于 /login 的 OAuth 提供商。 */
   oauth?: {
     name: string;
     login(callbacks: OAuthLoginCallbacks): Promise<OAuthCredentials>;
@@ -694,32 +716,33 @@ interface ProviderConfig {
 }
 ```
 
-## Model Definition Reference
+<a id="model-definition-reference"></a>
+## 模型定义参考
 
 ```typescript
 interface ProviderModelConfig {
-  /** Model ID (e.g., "claude-sonnet-4-20250514"). */
+  /** 模型 ID（例如 "claude-sonnet-4-20250514"）。 */
   id: string;
 
-  /** Display name (e.g., "Claude 4 Sonnet"). */
+  /** 显示名称（例如 "Claude 4 Sonnet"）。 */
   name: string;
 
-  /** API type override for this specific model. */
+  /** 该模型的 API 类型覆盖。 */
   api?: Api;
 
-  /** API endpoint URL override for this specific model. */
+  /** 该模型的 API 端点 URL 覆盖。 */
   baseUrl?: string;
 
-  /** Whether the model supports extended thinking. */
+  /** 模型是否支持扩展思考。 */
   reasoning: boolean;
 
-  /** Maps pi thinking levels to provider/model-specific values; null marks a level unsupported. */
+  /** 把 pi 思考级别映射到提供商/模型特定值；null 表示该级别不受支持。 */
   thinkingLevelMap?: Partial<Record<"off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max", string | null>>;
 
-  /** Supported input types. */
+  /** 支持的输入类型。 */
   input: ("text" | "image")[];
 
-  /** Cost per million tokens (for usage tracking). */
+  /** 每百万 tokens 的费用（用于用量跟踪）。 */
   cost: {
     input: number;
     output: number;
@@ -727,16 +750,16 @@ interface ProviderModelConfig {
     cacheWrite: number;
   };
 
-  /** Maximum context window size in tokens. */
+  /** 最大上下文窗口，单位 tokens。 */
   contextWindow: number;
 
-  /** Maximum output tokens. */
+  /** 最大输出 tokens。 */
   maxTokens: number;
 
-  /** Custom headers for this specific model. */
+  /** 该模型的自定义 headers。 */
   headers?: Record<string, string>;
 
-  /** Compatibility settings for the selected API. */
+  /** 所选 API 的兼容性设置。 */
   compat?: {
     // openai-completions
     supportsStore?: boolean;
@@ -745,7 +768,7 @@ interface ProviderModelConfig {
     supportsUsageInStreaming?: boolean;
     supportsFinishReason?: boolean;
     supportsStrictMode?: boolean;
-    supportsOpenAIGrammarTools?: boolean; // openai-completions/openai-responses; false falls back to normal function tools
+    supportsOpenAIGrammarTools?: boolean; // openai-completions/openai-responses；false 回退到普通 function tools
     maxTokensField?: "max_completion_tokens" | "max_tokens";
     requiresToolResultName?: boolean;
     requiresAssistantAfterToolResult?: boolean;
@@ -772,6 +795,6 @@ interface ProviderModelConfig {
 }
 ```
 
-`openrouter` sends `reasoning: { effort }`. `deepseek` sends `thinking: { type: "enabled" | "disabled" }` and `reasoning_effort` when enabled. `together` sends `reasoning: { enabled }` and also `reasoning_effort` when `supportsReasoningEffort` is enabled. `qwen` is for DashScope-style top-level `enable_thinking`. Use `qwen-chat-template` for local Qwen-compatible servers that read `chat_template_kwargs.enable_thinking` and need `preserve_thinking`. Use `chat-template` for configurable `chat_template_kwargs`, for example DeepSeek V3.x behind vLLM with `chatTemplateKwargs: { "thinking": { "$var": "thinking.enabled" } }`. Use `thinkingFormat: "baseten"` with `chatTemplateArgs` when the provider expects toggle values under `chat_template_args` and optionally supports top-level `reasoning_effort`.
-`thinkingTokenBudgetField` sends a clamped per-level thinking budget as a top-level request field (`thinking_token_budget` on vLLM, `thinking_budget` on Qwen/SGLang, `thinking_budget_tokens` on llama.cpp). `supportsThinkingTokenBudget: true` is an alias for the vLLM field name. Do not combine it with `reasoning_effort` on DashScope Qwen models.
-`cacheControlFormat: "anthropic"` applies Anthropic-style `cache_control` markers to the system prompt, last tool definition, and last user, assistant, or tool-result text content.
+`openrouter` 发送 `reasoning: { effort }`。`deepseek` 发送 `thinking: { type: "enabled" | "disabled" }`，启用时还发送 `reasoning_effort`。`together` 发送 `reasoning: { enabled }`，在 `supportsReasoningEffort` 开启时也发送 `reasoning_effort`。`qwen` 用于 DashScope 风格的顶层 `enable_thinking`。对读取 `chat_template_kwargs.enable_thinking` 且需要 `preserve_thinking` 的本地 Qwen 兼容服务器，使用 `qwen-chat-template`。对可配置的 `chat_template_kwargs` 使用 `chat-template`，例如 vLLM 后面的 DeepSeek V3.x，配合 `chatTemplateKwargs: { "thinking": { "$var": "thinking.enabled" } }`。当提供商期望在 `chat_template_args` 下使用开关值，并可选支持顶层 `reasoning_effort` 时，使用 `thinkingFormat: "baseten"` 配合 `chatTemplateArgs`。
+`thinkingTokenBudgetField` 把按级别钳制后的思考预算作为顶层请求字段发送（vLLM 上是 `thinking_token_budget`，Qwen/SGLang 上是 `thinking_budget`，llama.cpp 上是 `thinking_budget_tokens`）。`supportsThinkingTokenBudget: true` 是 vLLM 字段名的别名。不要在 DashScope Qwen 模型上把它与 `reasoning_effort` 一起用。
+`cacheControlFormat: "anthropic"` 会把 Anthropic 风格的 `cache_control` 标记应用到系统提示、最后一个工具定义，以及最后一条 user、assistant 或 tool-result 文本内容。

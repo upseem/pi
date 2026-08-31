@@ -1,59 +1,59 @@
-# Security
+# 安全
 
-Pi is a local coding agent. It runs with the permissions of the user account that starts it, and it treats files writable by that user as inside the same local trust boundary.
+Pi 是本地编码代理。它以启动它的用户账户权限运行，并把该用户可写的文件视为同一本地信任边界之内。
 
-## Project Trust
+## 项目信任
 
-Project trust controls whether pi loads project-local settings, resources, packages, and extensions. It is not a sandbox and it does not restrict what the model can ask tools to do after you start working in a directory.
+项目信任控制 pi 是否加载项目本地的设置、资源、包和扩展。它不是沙箱，也不会在你开始在某个目录工作之后，限制模型能让工具做什么。
 
-Pi considers a project to have resources that require trust when it finds any of these from the current working directory:
-
-- `.pi/settings.json`
-- `.pi/extensions`, `.pi/skills`, `.pi/prompts`, or `.pi/themes`
-- `.pi/SYSTEM.md` or `.pi/APPEND_SYSTEM.md`
-- project `.agents/skills` in the current directory or an ancestor directory
-
-A bare `.pi` directory does not count as a project resource that requires trust.
-
-When an interactive session starts in a project with resources that require trust and no saved decision for the current directory or a parent directory, pi follows `defaultProjectTrust` from global settings. The default value is `"ask"`, which asks whether to trust the project when UI is available. Saved decisions are stored by canonical directory in `~/.pi/agent/trust.json`, and the closest saved decision on the current or parent path applies before the global default.
-
-Trusting a project allows pi to load project resources that require trust, including:
+从当前工作目录起，只要找到以下任一内容，Pi 就认为该项目有需要信任的资源：
 
 - `.pi/settings.json`
-- `.pi` resources such as extensions, skills, prompt templates, themes, and system prompt files
-- missing project packages configured through project settings
-- project-local extensions and project package-managed extensions
+- `.pi/extensions`、`.pi/skills`、`.pi/prompts` 或 `.pi/themes`
+- `.pi/SYSTEM.md` 或 `.pi/APPEND_SYSTEM.md`
+- 当前目录或祖先目录中的项目 `.agents/skills`
 
-Declining trust skips protected resources. Context files such as `AGENTS.override.md`, `AGENTS.md`, and `CLAUDE.md` are loaded regardless of project trust unless context loading is disabled. Before trust is resolved, pi only loads context files, user/global extensions, and CLI `-e` extensions. User/global and CLI extensions can handle the `project_trust` event; the first extension that returns a yes/no decision owns the decision.
+单独一个空的 `.pi` 目录不算需要信任的项目资源。
 
-Non-interactive modes (`-p`, `--mode json`, and `--mode rpc`) do not show a trust prompt. Without an applicable saved trust decision, `defaultProjectTrust: "ask"` and `"never"` ignore such resources, while `"always"` trusts them. Use `--approve`/`-a` or `--no-approve`/`-na` to override project trust for one run.
+交互会话在带有需信任资源的项目中启动，且当前目录或父目录没有已保存的决定时，pi 会遵循全局设置里的 `defaultProjectTrust`。默认值是 `"ask"`，在有 UI 时会询问是否信任该项目。已保存的决定按规范目录存在 `~/.pi/agent/trust.json`；当前路径或父路径上最近的已保存决定会先于全局默认值生效。
 
-## No Built-in Sandbox
+信任一个项目后，pi 可以加载需要信任的项目资源，包括：
 
-Pi does not include a built-in sandbox. Built-in tools can read files, write files, edit files, and run shell commands with the permissions of the pi process. Extensions are TypeScript modules that run with the same permissions. Package installs, shell commands, language servers, test commands, and other developer tools behave as ordinary local processes.
+- `.pi/settings.json`
+- `.pi` 资源，例如扩展、skills、提示模板、主题和系统提示文件
+- 通过项目设置配置、但尚未安装的项目包
+- 项目本地扩展以及由项目包管理的扩展
 
-This is intentional. Pi is designed to operate on local source trees, invoke project toolchains, and integrate with the user's existing development environment. A partial in-process sandbox would be easy to misunderstand as a security boundary while still depending on the host shell, filesystem, package managers, credentials, and extension code. Real isolation needs to come from the operating system or a virtualization/container boundary.
+拒绝信任会跳过受保护资源。`AGENTS.override.md`、`AGENTS.md` 和 `CLAUDE.md` 这类上下文文件无论项目信任如何都会加载，除非禁用了上下文加载。信任尚未决议之前，pi 只加载上下文文件、用户/全局扩展，以及 CLI `-e` 扩展。用户/全局和 CLI 扩展可以处理 `project_trust` 事件；第一个返回 yes/no 决定的扩展拥有该决定。
 
-Project trust is only an input-loading guard. It prevents a repository from silently changing pi's settings or extensions before you approve it. It does not make untrusted code, untrusted prompts, or untrusted model output safe. Prompt injection from repository files, comments, documentation, context files, or build output is expected local-agent risk and cannot be reliably prevented by pi.
+非交互模式（`-p`、`--mode json` 和 `--mode rpc`）不会显示信任提示。若没有适用的已保存信任决定，`defaultProjectTrust: "ask"` 和 `"never"` 会忽略这些资源，而 `"always"` 会信任它们。可用 `--approve`/`-a` 或 `--no-approve`/`-na` 覆盖单次运行的项目信任。
 
-## Running Untrusted or Unmonitored Work
+## 没有内置沙箱
 
-For untrusted repositories, generated code you do not intend to monitor closely, or unattended automation, run pi in a contained environment. Use a container, VM, micro-VM, remote sandbox, or policy-controlled sandbox with only the files and credentials required for the task.
+Pi 没有内置沙箱。内置工具可以按 pi 进程的权限读文件、写文件、编辑文件并运行 shell 命令。扩展是 TypeScript 模块，权限相同。包安装、shell 命令、语言服务器、测试命令以及其他开发工具都按普通本地进程工作。
 
-Common patterns are documented in [Containerization](containerization.md):
+这是有意的。Pi 被设计成操作本地源码树、调用项目工具链，并接入用户现有的开发环境。不完整的进程内沙箱很容易被误解成安全边界，却仍依赖主机 shell、文件系统、包管理器、凭据和扩展代码。真正的隔离必须来自操作系统，或虚拟化/容器边界。
 
-- run the whole `pi` process inside a container/sandbox
-- run host pi while routing built-in tool execution into a Gondolin micro-VM
-- mount only the workspace paths the agent should access
-- avoid mounting host `~/.pi/agent` unless the container should access host sessions, settings, and credentials
-- pass the minimum required API keys or use short-lived credentials
-- restrict network access when the task does not need it
-- review diffs and outputs before copying results back to trusted systems
+项目信任只是输入加载守卫。它防止仓库在你批准之前悄悄改掉 pi 的设置或扩展。它不会让不受信任的代码、提示或模型输出变得安全。来自仓库文件、注释、文档、上下文文件或构建输出的提示注入，是本地代理的预期风险，pi 无法可靠地阻止。
 
-If you bind-mount a host workspace read/write, writes from inside the container or VM can still modify host files. Use read-only mounts or copy files into and out of the sandbox when you need stronger protection from unintended writes.
+## 运行不受信任或无人值守的工作
 
-## Reporting Security Issues
+对于不受信任的仓库、你不打算密切盯着的生成代码，或无人值守自动化，请把 pi 放在受控环境里运行。使用容器、虚拟机、微虚拟机、远程沙箱，或策略控制的沙箱，并且只放入该任务所需的文件和凭据。
 
-To report a security issue, follow the repository [Security Policy](https://github.com/earendil-works/pi-mono/blob/main/SECURITY.md). Do not open a public issue for security-sensitive reports.
+常见模式见 [容器化](containerization.md)：
 
-Expected local-agent behavior, lack of a built-in sandbox, prompt injection from untrusted content, and behavior of user-installed extensions or skills are generally outside the security boundary unless the report demonstrates a real privilege-boundary bypass or shows how pi grants access that the local user did not already have.
+- 把整个 `pi` 进程放进容器/沙箱
+- 在主机上运行 pi，但把内置工具执行路由进 Gondolin 微虚拟机
+- 只挂载代理应该访问的工作区路径
+- 除非容器需要访问主机会话、设置和凭据，否则不要挂载主机的 `~/.pi/agent`
+- 只传入最少所需的 API key，或使用短时凭据
+- 任务不需要网络时限制网络访问
+- 把结果拷回受信任系统之前，先审查 diff 和输出
+
+如果把主机工作区以读写方式 bind-mount 进去，容器或虚拟机内的写入仍可能修改主机文件。需要更强的写入防护时，使用只读挂载，或把文件拷进/拷出沙箱。
+
+## 报告安全问题
+
+要报告安全问题，请遵循仓库的 [安全策略](https://github.com/earendil-works/pi-mono/blob/main/SECURITY.md)。不要为安全敏感报告开公开 issue。
+
+本地代理的预期行为、缺少内置沙箱、来自不受信任内容的提示注入，以及用户安装的扩展或 skill 的行为，一般不在安全边界之内，除非报告证明了真实的权限边界绕过，或说明 pi 授予了本地用户原本没有的访问。
