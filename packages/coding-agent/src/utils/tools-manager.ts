@@ -40,16 +40,16 @@ export function getToolPath(tool: "fd" | "rg"): string | null {
 	const config = TOOLS[tool];
 	if (!config) return null;
 
-	const localPath = join(TOOLS_DIR, config.binaryName);
-	if (existsSync(localPath)) {
-		return localPath;
-	}
-
 	const systemBinaryNames = config.systemBinaryNames ?? [config.binaryName];
 	for (const systemBinaryName of systemBinaryNames) {
 		if (commandExists(systemBinaryName)) {
 			return systemBinaryName;
 		}
+	}
+
+	const localPath = join(TOOLS_DIR, config.binaryName);
+	if (existsSync(localPath)) {
+		return localPath;
 	}
 
 	return null;

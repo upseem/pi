@@ -18,6 +18,9 @@ pi-coding-agent SDK 与扩展的示例代码。
 - 外部集成（SSH、文件监视、系统主题同步）
 - 自定义提供商（带自定义流式的 Anthropic、GitLab Duo）
 
+### [plugins/pi-example-plugin/](plugins/pi-example-plugin/)
+实验性插件包，Pi 会自动将其构建为独立的 Session worker facet 和 TUI Chord facet。
+
 ## 文档
 
 - [SDK 参考](sdk/README.md)

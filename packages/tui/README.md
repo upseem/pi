@@ -13,7 +13,7 @@
 - **括号粘贴模式**：正确处理大段粘贴，超过 10 行时使用标记
 - **基于组件**：简单的 Component 接口，带 `render()` 方法
 - **主题支持**：组件接受主题接口，可自定义样式
-- **内置组件**：Text、TruncatedText、Input、Editor、Markdown、Loader、SelectList、SettingsList、Spacer、Image、Box、Container、VStack、HStack、ScrollView
+- **内置组件**：Text、TruncatedText、Input、Editor、Markdown、Loader、SelectList、SettingsList、MouseRegion、Spacer、Image、Box、Container、VStack、HStack、ScrollView
 - **行内图片**：在支持 Kitty 或 iTerm2 图形协议的终端中渲染图片
 - **自动补全**：文件路径与斜杠命令
 
@@ -127,7 +127,7 @@ if (isViewportTUI(tui)) {
 }
 ```
 
-栈条目支持 `basis`、`grow`、`shrink`、`minSize`、`maxSize`，以及响应式 `visible` 回调。鼠标滚轮默认作用于指针下的滚动视图，未消耗的增量会链式传递给外层滚动视图。主滚动视图接收备用屏幕的键盘导航动作，以及落在不可滚动区域上的滚轮输入。它也可以在 OSC 133 语义提示标记之间跳转，与常见终端提示导航快捷键一致。按 `Ctrl+Shift+F` 搜索其渲染内容，`Enter`/`Ctrl+G` 和 `Shift+Enter`/`Ctrl+Shift+G` 在匹配项之间移动，`Escape` 关闭搜索。`TuiAltScreenOptions.searchMatchStyle` 和 `searchCurrentMatchStyle` 可自定义匹配高亮。
+栈条目支持 `basis`、`grow`、`shrink`、`minSize`、`maxSize`，以及响应式 `visible` 回调。鼠标滚轮默认作用于指针下的滚动视图，未消耗的增量会链式传递给外层滚动视图。主滚动视图接收备用屏幕的键盘导航动作，以及落在不可滚动区域上的滚轮输入。它也可以在 OSC 133 语义提示标记之间跳转，与常见终端提示导航快捷键一致。按 `Ctrl+Shift+F` 可打开或关闭带边框的搜索面板。面板显示已配置的上一个/下一个快捷键，并提供可点击的箭头控件；默认情况下，`Enter`/`Ctrl+G` 和 `Shift+Enter`/`Ctrl+Shift+G` 在匹配项之间移动，`Escape` 也会关闭搜索。`TuiAltScreenOptions.searchMatchStyle` 和 `searchCurrentMatchStyle` 可自定义匹配高亮；`searchNavigationButtonStyle` 可设置各箭头按钮的样式，并会收到其 hover 状态。`TuiAltScreenOptions.scrollToEndIndicator` 会在采用 `follow: "end"` 的主滚动视图离开末尾时，在最后一行居中渲染可点击标签；点击后恢复跟随末尾。
 
 每次请求帧都会重建布局几何。有状态组件会被保留，其已有的渲染行缓存仍然有效。直接对这些布局组件调用 `render(width)` 会生成无界文档，备用模式恢复主屏幕时也会用到它。
 
@@ -184,6 +184,7 @@ handle.unfocus();           // 把焦点交还给常规回退目标
 handle.unfocus({ target: baseComponent }); // 把该浮层的焦点交给指定组件
 handle.unfocus({ target: null });   // 释放该浮层焦点并保持无焦点
 handle.isFocused();         // 检查浮层是否拥有焦点
+handle.getBounds();         // 获取上次渲染时相对于终端的边界
 
 handle.unfocus();
 // 浮层失去焦点；TUI 回退到另一个可见的捕获型浮层，或先前的焦点目标。
@@ -218,6 +219,7 @@ tui.hasOverlay();
 interface Component {
   render(width: number): string[];
   handleInput?(data: string): void;
+  handleMouse?(event: TuiMouseEvent): TuiMouseEventResult | undefined;
   invalidate?(): void;
 }
 ```
@@ -226,9 +228,50 @@ interface Component {
 |--------|-------------|
 | `render(width)` | 返回字符串数组，每行一条。每行**不得超过 `width`**，否则 TUI 会报错。使用 `truncateToWidth()` 或手动换行来保证这一点。 |
 | `handleInput?(data)` | 组件拥有焦点并收到键盘输入时调用。`data` 字符串包含原始终端输入（可能包含 ANSI 转义序列）。 |
+| `handleMouse?(event)` | `TuiAltScreen` 把规范化后的指针输入定向到该组件时调用。 |
 | `invalidate?()` | 用于清除任何缓存的渲染状态。组件应在下一次 `render()` 调用时从头重新渲染。 |
 
 TUI 会在每条渲染行末尾追加完整的 SGR 重置和 OSC 8 重置。样式不会跨行延续。如果输出带样式的多行文本，请按行重新应用样式，或使用 `wrapTextWithAnsi()`，以便每条换行后的行都保留样式。
+
+<a id="mouse-input"></a>
+### 鼠标输入
+
+`TuiAltScreen` 会规范化 SGR 鼠标输入，并对组件和浮层执行 hit test。事件包含组件局部 `x`/`y`、绝对 `screenX`/`screenY`、边界、按钮、修饰键、点击次数和滚轮增量。`TuiMainScreen` 不捕获鼠标输入，因为它的回滚由终端管理。
+
+```typescript
+import type { TuiMouseEvent, TuiMouseEventResult } from "@earendil-works/pi-tui";
+
+handleMouse(event: TuiMouseEvent): TuiMouseEventResult | undefined {
+  if (event.type === "click" && event.button === "left") {
+    this.expanded = !this.expanded;
+    return { handled: true };
+  }
+  if (event.type === "press" && event.button === "left") {
+    return { handled: true, capture: true, focus: true };
+  }
+  if (event.type === "drag") {
+    this.updateFromPointer(event.x, event.y);
+    return { handled: true, render: true };
+  }
+  return undefined;
+}
+```
+
+返回 `handled` 会抑制渲染器级的回退行为。`capture` 使后续 drag 与 release 事件继续路由到同一组件；`focus` 请求键盘焦点。可选的 `render` 标志控制重绘：press、click、drag 和 wheel 默认触发渲染，move 与 release 默认不触发。hover 状态发生可见变化时设置 `render: true`；已处理但无变化时可设 `render: false`。渲染请求会被合并，终端输出仍采用差分方式。
+
+未处理的手势保留备用屏幕默认行为：滚轮滚动最近的 `ScrollView` 并链式传递未消耗增量；主键拖动选择文本；OSC 8 链接先于父级 click handler 打开；未处理的右键保留已配置的粘贴行为。只有 press/release 期间未发生拖动时才会发出 click。
+
+使用 `MouseRegion` 可以在不改变组件渲染的情况下添加鼠标行为：
+
+```typescript
+const collapsible = new MouseRegion(content, (event) => {
+  if (event.type !== "click" || event.button !== "left") return undefined;
+  expanded = !expanded;
+  return { handled: true };
+});
+```
+
+`Container` 与 `Box` 使用上一渲染帧记录的几何信息把事件路由给嵌套子组件，因此不会仅为 hit test 而在指针移动时重新渲染子组件。显式的 `VStack`、`HStack` 和 `ScrollView` 布局直接使用备用屏幕布局帧。
 
 <a id="focusable-interface-ime-support"></a>
 ### Focusable 接口（IME 支持）
@@ -255,7 +298,7 @@ class MyInput implements Component, Focusable {
 3. 将硬件终端光标定位到该位置
 4. 仅在启用 `showHardwareCursor` 时显示硬件光标
 
-默认隐藏光标。这样仍渲染伪光标，同时为那些在光标隐藏时仍跟踪 IME 候选窗的终端定位硬件光标。有些终端需要可见硬件光标才能正确定位 IME；可通过渲染器构造函数的 `showHardwareCursor` 参数、`setShowHardwareCursor(true)` 或 `PI_HARDWARE_CURSOR=1` 启用。内置的 `Editor` 和 `Input` 组件已实现该接口。
+默认隐藏光标。这样仍渲染伪光标，同时为那些在光标隐藏时仍跟踪 IME 候选窗的终端定位硬件光标。有些终端需要可见硬件光标才能正确定位 IME；可通过渲染器构造函数的 `showHardwareCursor` 参数或 `setShowHardwareCursor(true)` 启用。内置的 `Editor` 和 `Input` 组件已实现该接口。
 
 **包含嵌入输入的容器组件：** 当容器组件（对话框、选择器等）包含 `Input` 或 `Editor` 子组件时，容器必须实现 `Focusable`，并把焦点状态传播给子组件：
 
@@ -353,6 +396,8 @@ input.setValue("initial");
 input.getValue();
 ```
 
+在备用屏幕模式下，点击会定位光标，并把键盘焦点交给输入框。
+
 **按键绑定：**
 - `Enter` - 提交
 - `Ctrl+A` / `Ctrl+E` - 行首/行尾
@@ -389,6 +434,7 @@ editor.getPaddingX();  // 获取当前内边距
 ```
 
 **特性：**
+- 备用屏幕模式下可点击定位光标，自动补全行也可点击
 - 带自动换行的多行编辑
 - 斜杠命令自动补全（输入 `/`）
 - 文件路径自动补全（按 `Tab`）
@@ -533,6 +579,8 @@ list.setFilter("opt"); // 过滤项
 ```
 
 **操作：**
+- 鼠标移动/滚轮：在备用屏幕模式下高亮行
+- 点击：选择一行
 - 方向键：导航
 - Enter：选择
 - Escape：取消
@@ -574,6 +622,8 @@ settings.updateValue("theme", "light");
 ```
 
 **操作：**
+- 鼠标移动/滚轮：在备用屏幕模式下高亮行
+- 点击：激活一行
 - 方向键：导航
 - Enter/Space：激活（循环值或打开子菜单）
 - Escape：取消
@@ -684,7 +734,7 @@ if (matchesKey(data, Key.enter)) {
 2. **宽度变化或视口上方发生变化**：清屏并完整重绘
 3. **常规更新**：把光标移到第一条变化行，清到末尾，并渲染变化的行
 
-`TuiAltScreen` 拥有一个终端高度的视口。没有显式布局根时，它保留旧的单文档滚动行为。使用 `setLayoutRoot()` 后，`VStack`、`HStack` 和嵌套的 `ScrollView` 可以预留固定区域，并独立滚动受约束区域。它就地更新变化的视口行，在底部时跟随流式输出，并在内容增长时保留手动选择的滚动位置。鼠标滚轮和可配置的键盘导航会滚动视口，而不修改终端回滚，包括在 OSC 133 语义提示标记之间跳转。点击 OSC 8 超链接会用配置的 URL 处理器打开。用主键拖动可选中文本；除非将 `TuiAltScreenOptions.copyOnSelect` 设为 `false`，否则会通过 OSC 52 将其复制到剪贴板；在滚动视图的顶/底边缘按住拖动会自动滚动，并把选区扩展到屏幕外内容。Kitty 图片支持垂直视口裁剪；iTerm2 行内图片回退为文本，因为 iTerm2 协议无法在视口重绘时删除或裁剪放置。
+`TuiAltScreen` 拥有一个终端高度的视口。没有显式布局根时，它保留旧的单文档滚动行为。使用 `setLayoutRoot()` 后，`VStack`、`HStack` 和嵌套的 `ScrollView` 可以预留固定区域，并独立滚动受约束区域。它就地更新变化的视口行，在底部时跟随流式输出，并在内容增长时保留手动选择的滚动位置。鼠标滚轮和可配置的键盘导航会滚动视口，而不修改终端回滚，包括在 OSC 133 语义提示标记之间跳转。滚动条支持 hover 展开、拖动滑块，以及点击轨道跳转。点击 OSC 8 超链接会用配置的 URL 处理器打开。用主键拖动可选中文本；除非将 `TuiAltScreenOptions.copyOnSelect` 设为 `false`，否则会通过 OSC 52 将其复制到剪贴板；在滚动视图的顶/底边缘按住拖动会自动滚动，并把选区扩展到屏幕外内容。Kitty 图片支持垂直视口裁剪；iTerm2 行内图片回退为文本，因为 iTerm2 协议无法在视口重绘时删除或裁剪放置。
 
 两种渲染器都用**同步输出**（`\x1b[?2026h` ... `\x1b[?2026l`）包裹更新，以实现原子、无闪烁渲染。
 

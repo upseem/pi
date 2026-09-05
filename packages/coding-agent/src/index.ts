@@ -361,6 +361,7 @@ export {
 	BranchSummaryMessageComponent,
 	CompactionSummaryMessageComponent,
 	CustomEditor,
+	type CustomEditorOptions,
 	CustomMessageComponent,
 	DynamicBorder,
 	ExtensionEditorComponent,

@@ -430,6 +430,8 @@ ${chalk.bold("环境变量:")}
   ${ENV_AGENT_DIR.padEnd(32)} - 配置目录（默认：~/${CONFIG_DIR_NAME}/agent）
   ${ENV_SESSION_DIR.padEnd(32)} - 会话存储目录（会被 --session-dir 覆盖）
   PI_PACKAGE_DIR                   - 覆盖包目录（用于 Nix/Guix store 路径）
+  PI_SERVER_DIR                    - 实验性服务器配置和 socket 目录（默认：~/.pi/server）
+  PI_SERVER_ID                     - 实验性服务器逻辑 ID（可由 --server-id 覆盖）
   PI_OFFLINE                       - 设为 1/true/yes 时禁用启动时的网络操作
   PI_TELEMETRY                     - 设为 1/true/yes 或 0/false/no 时覆盖安装遥测
   PI_SHARE_VIEWER_URL              - /share 命令的基址（默认：https://pi.dev/session/）

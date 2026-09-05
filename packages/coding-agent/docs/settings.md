@@ -36,7 +36,7 @@ Pi 使用 JSON 设置文件，项目设置会覆盖全局设置。
 | `defaultThinkingLevel` | string | - | 启动思考级别（在 `/thinking` 中用 Ctrl+S 保存，或手动编辑）：`"off"`、`"minimal"`、`"low"`、`"medium"`、`"high"`、`"xhigh"`、`"max"` |
 | `modelThinkingLevels` | object | - | 按模型的启动思考级别，键为 `"provider/modelId"`；在 `/settings` → Default thinking level per model 中配置，或手动编辑 |
 | `hideThinkingBlock` | boolean | `false` | 在输出中隐藏思考块 |
-| `showCacheMissNotices` | boolean | `false` | 对显著的 prompt-cache 未命中，以及压缩或分支摘要用量，显示会话通知 |
+| `showCacheMissNotices` | boolean | `false` | 对显著的 prompt-cache 未命中、压缩或分支摘要用量，以及丢弃 Anthropic 思考块等提供商恢复诊断，显示会话通知 |
 | `thinkingBudgets` | object | - | 各思考级别的自定义 token 预算。Anthropic、Google 和 Bedrock 原生使用这些值。OpenAI 兼容模型在设置了 `compat.thinkingTokenBudgetField`（或 `supportsThinkingTokenBudget`）时使用。 |
 
 <a id="thinkingbudgets"></a>
@@ -63,7 +63,7 @@ Pi 使用 JSON 设置文件，项目设置会覆盖全局设置。
 | `quietStartup` | boolean | `false` | 隐藏启动头信息 |
 | `defaultProjectTrust` | string | `"ask"` | 项目信任回退行为：`"ask"`、`"always"` 或 `"never"`。仅全局设置 |
 | `collapseChangelog` | boolean | `false` | 更新后显示精简 changelog |
-| `enableInstallTelemetry` | boolean | `true` | 首次安装或检测到 changelog 更新后，发送匿名安装/更新版本 ping。这不控制更新检查 |
+| `enableInstallTelemetry` | boolean | `true` | 发送匿名安装/更新 ping 和选定的提供商归因请求头。这不控制更新检查 |
 | `enableAnalytics` | boolean | `false` | 选择加入分析数据共享。目前仅在实验性首次设置（`PI_EXPERIMENTAL=1`）期间询问 |
 | `trackingId` | string | - | 分析跟踪标识符，在打开 `enableAnalytics` 时生成 |
 | `doubleEscapeAction` | string | `"tree"` | 双击 Escape 的动作：`"tree"`、`"fork"` 或 `"none"` |
@@ -74,7 +74,7 @@ Pi 使用 JSON 设置文件，项目设置会覆盖全局设置。
 | `showHardwareCursor` | boolean | `false` | 在 TUI 为 IME 定位光标时显示终端光标 |
 | `tuiMode` | string | `"regular"` | 交互 TUI 模式：`"regular"` 或实验性 `"fullscreen"`。从 `/settings` 更改会立即生效；`--tui-mode` 在启动时覆盖此设置 |
 | `fullscreenExitOutput` | string | `"transcript"` | 全屏退出输出：`"transcript"` 打印最终会话记录和恢复提示，`"resume-hint"` 恢复上一屏并只打印恢复提示。在常规 TUI 模式下无效 |
-| `fullscreenScrollbar` | string | `"auto"` | 全屏会话滚动条：`"auto"` 滚动时临时显示，`"always"` 预留最右列并保持可见，`"hidden"` 隐藏。在常规 TUI 模式下无效 |
+| `fullscreenScrollbar` | string | `"auto"` | 全屏会话滚动条：`"auto"` 在滚动时或指针悬停于最右列轨道时临时显示，`"always"` 预留该列并保持可见，`"hidden"` 隐藏。在常规 TUI 模式下无效 |
 | `fullscreenCopyOnSelect` | boolean | `true` | 在全屏模式下自动复制选中的文本。禁用后，选区会保持高亮，按 `Ctrl+X` 可复制当前选区 |
 
 对 VS Code，加入 `--wait`，以便编辑器退出后 pi 再继续：
@@ -88,7 +88,7 @@ Pi 使用 JSON 设置文件，项目设置会覆盖全局设置。
 <a id="telemetry-and-update-checks"></a>
 ### 遥测与更新检查
 
-`enableInstallTelemetry` 只控制发往 `https://pi.dev/api/report-install` 的匿名安装/更新 ping。关闭遥测不会禁用更新检查；Pi 仍会请求 `https://pi.dev/api/latest-version` 以查找最新版本。
+`enableInstallTelemetry` 控制发往 `https://pi.dev/api/report-install` 的匿名安装/更新 ping，以及 OpenRouter、NVIDIA NIM 和 Cloudflare 提供商请求中的 Pi 归因请求头。选择退出会同时禁用这两项。它不会禁用更新检查；Pi 仍可请求 `https://pi.dev/api/latest-version` 以查找最新版本。
 
 设置 `PI_SKIP_VERSION_CHECK=1` 可禁用 Pi 版本更新检查。使用 `--offline` 或 `PI_OFFLINE=1` 可禁用此处描述的全部启动网络操作，包括更新检查、包更新检查以及安装/更新遥测。
 
@@ -144,7 +144,7 @@ Pi 使用 JSON 设置文件，项目设置会覆盖全局设置。
 
 | 设置 | 类型 | 默认值 | 说明 |
 |---------|------|---------|-------------|
-| `branchSummary.reserveTokens` | number | `16384` | 为分支摘要预留的 token |
+| `branchSummary.reserveTokens` | number | `16384` | 选择分支历史时预留的 token；输出最多为 4096 tokens |
 | `branchSummary.skipPrompt` | boolean | `false` | 在 `/tree` 导航时跳过“Summarize branch?”提示（默认不生成摘要） |
 
 <a id="retry"></a>

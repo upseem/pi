@@ -71,7 +71,7 @@ Pi 从以下位置加载 skills：
 
 1. 启动时，pi 扫描 skill 位置并提取名称和描述
 2. 系统提示按[规范](https://agentskills.io/integrate-skills)以 XML 列出可用 skills
-3. 任务匹配时，代理用 `read` 加载完整 SKILL.md（模型并不总会这样做；可用提示或 `/skill:name` 强制加载）
+3. 任务匹配时，代理用 `read` 加载完整 SKILL.md；若 `read` 不可用，则使用 `bash`（模型并不总会这样做；可用提示或 `/skill:name` 强制加载）
 4. 代理按说明执行，用相对路径引用脚本和资源
 
 这是渐进式披露：上下文中始终只有描述，完整说明按需加载。

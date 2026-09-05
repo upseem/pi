@@ -95,9 +95,11 @@
 <a id="tui-fullscreen-viewport"></a>
 ### TUI 全屏视口
 
-这些动作在交互模式使用 `--tui-mode fullscreen` 时生效，作用于主 transcript 滚动区域。双指触控板和鼠标滚轮滚动指针下方的区域；若在固定的编辑器/状态/页脚停靠区上，则回退到 transcript。点击 OSC 8 超链接会用默认处理器打开。按住主键拖动可选中文本并复制到剪贴板；在 transcript 顶部或底部边缘按住会自动滚入屏幕外内容。终端相关的鼠标和触控板行为见 [终端设置](terminal-setup.md)。
+这些动作在交互模式使用 `--tui-mode fullscreen` 时生效，作用于主 transcript 滚动区域。双指触控板和鼠标滚轮滚动指针下方的区域；若在固定的编辑器/状态/页脚停靠区上，则回退到 transcript。点击 OSC 8 超链接会用默认处理器打开。按住主键拖动可选中文本并复制到剪贴板；在 transcript 顶部或底部边缘按住会自动滚入屏幕外内容。向上滚动 transcript 后，底部一行会显示可点击的“跳到最新消息”标签，并标示 `tui.altScreen.bottom` 快捷键。终端相关的鼠标和触控板行为见 [终端设置](terminal-setup.md)。
 
 全屏 transcript 绑定优先于编辑器绑定。因此默认的无修饰导航键在全屏模式控制 transcript，其 `ctrl` 变体继续控制编辑器。非全屏模式下，两种变体都控制编辑器。
+
+transcript 搜索面板会显示已配置的上一个/下一个快捷键和可点击的箭头控件。再次按 `tui.altScreen.search`，或使用 `tui.altScreen.searchClose`，可关闭该面板。
 
 | 按键 | 默认模式 | 全屏模式 |
 |-----|--------------|-----------------|
@@ -161,7 +163,9 @@
 | `app.model.select` | `ctrl+l` | 打开模型选择器 |
 | `app.model.cycleForward` | `ctrl+p` | 循环到下一个模型 |
 | `app.model.cycleBackward` | `shift+ctrl+p` | 循环到上一个模型 |
+| `app.models.save` | `ctrl+s` | 把选中的默认模型或限定模型配置保存到设置 |
 | `app.thinking.cycle` | `shift+tab` | 循环思考级别 |
+| `app.thinking.save` | `ctrl+s` | 把当前思考级别保存到设置 |
 | `app.thinking.toggle` | `ctrl+t` | 折叠或展开思考块 |
 
 <a id="display-and-message-queue"></a>
@@ -198,7 +202,6 @@
 
 | Keybinding id | 默认 | 说明 |
 |--------|---------|-------------|
-| `app.models.save` | `ctrl+s` | 把当前模型选择保存到设置 |
 | `app.models.enableAll` | `ctrl+a` | 启用全部模型（或当前搜索匹配的全部模型） |
 | `app.models.clearAll` | `ctrl+x` | 清除全部模型（或当前搜索匹配的全部模型） |
 | `app.models.toggleProvider` | `ctrl+p` | 切换当前提供商的全部模型 |

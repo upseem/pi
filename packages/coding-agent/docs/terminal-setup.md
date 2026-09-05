@@ -141,6 +141,22 @@ VS Code 1.109.5 及更新版本默认在集成终端启用 Kitty keyboard protoc
 }
 ```
 
+<a id="zed-integrated-terminal"></a>
+## Zed（集成终端）
+
+将以下按键绑定添加到 Zed 的 `keymap.json`：
+
+```json
+{
+  "context": "Terminal",
+  "bindings": {
+    "shift-enter": ["terminal::SendText", "\u001b[13;2u"],
+    "ctrl--": ["terminal::SendText", "\u001b[45;5u"],
+    "ctrl-alt-]": ["terminal::SendText", "\u001b[93;7u"]
+  }
+}
+```
+
 <a id="xfce4-terminal-terminator"></a>
 ## xfce4-terminal、terminator
 

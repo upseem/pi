@@ -1,63 +1,72 @@
 # @earendil-works/pi-client
 
-面向远程 pi 会话、与传输无关的客户端。`PiClient` 通过一个很小的 `ByteTransport` 接口交换带长度前缀的 CBOR 消息。本包没有 Node 特有的导入。
+面向实验性 Pi 服务协议、与传输无关的客户端。
 
 ```ts
-import { PiClient, type ByteTransportFactory } from "@earendil-works/pi-client";
+import { Client, type ByteTransportFactory } from "@earendil-works/pi-client";
 
 const transportFactory: ByteTransportFactory = async (handlers) => {
   // 使用 WebSocket、Unix socket 或其他有序字节传输进行连接。
   return {
     async send(chunk) {
-      // 按调用顺序投递分片，并尊重背压。
+      // 按调用顺序投递字节，并尊重背压。
     },
     close() {},
   };
 };
 
-const client = new PiClient({ transportFactory });
-await client.connect();
-const session = await client.createSession({ cwd: "/workspace" });
-const unsubscribe = session.subscribe((snapshot) => render(snapshot));
-await session.prompt("Inspect this project");
-unsubscribe();
+const client = await Client.connect({
+  serverId: "01234567-89ab-4def-8123-456789abcdef",
+  transportFactory,
+});
+const result = await client.request(
+  { serverId: client.hello.serverId },
+  { serviceId: "example.service", member: "read", args: [] },
+);
 ```
 
-入站字节调用 `handlers.onData(chunk)`，有序关闭调用 `handlers.onClose()`，传输失败调用 `handlers.onError(error)`。工厂必须为每次连接尝试创建全新传输，并在 resolve 之前完成该传输特有的认证。例如，WebSocket 工厂可以在 upgrade 请求中提供凭据。
+客户端会验证物理端点报告的逻辑 `serverId` 是否符合预期。服务端范围的请求携带该 ID；每个 Session 请求则携带完整的实时目标 `{ serverId, sessionId, attachmentId }`。这个组合持久地址可防止请求被误投到其他服务端或会话；服务端生成的 attachment ID 会拒绝切换或重新挂接后延迟到达的帧。
 
-`PiClient` 不会自动重连。断开后需要调用 `reconnect()`。一条连接可以挂接多个会话。请求按 ID 关联。服务端快照和成功响应快照是权威状态，进度事件不会乐观地改写快照。缓存的会话元数据从 `client.snapshot?.sessions` 读取；调用 `listSessions()` 可向服务端请求刷新后的持久元数据。运行时状态在获取会话之后才可用。
+类型化的服务端和 Session API 由应用自有的 Chord 服务绑定提供。`createClientServiceTransport()` 把惰性解析的服务端或 Session 路由适配成 Chord transport；`request()` 和 `subscribeService()` 仍是底层原语。客户端使用 Chord 的服务控制解析器和每订阅状态解码器；`pi-protocol` 只校验路由信封和严格 JSON 边界。服务订阅会返回完整的提供方快照；绑定先安装快照，再调用 `start()` 释放 hydration 期间缓冲的更新。`Client` 会按顺序应用带外 attachment 变化，但有意不构造类型化服务代理，也不解释应用契约。
 
-`acquireSession()` 返回独立的 `SessionLease`；lease 不能直接构造。生命周期或变更协调使用 `{ mode: "exclusive" }`；多个底层消费者有意共享会话时使用 `{ mode: "shared" }`。只要已有任意 lease，独占获取会以 `PiSessionOwnershipError` 失败；已有独占 lease 时，共享获取也会失败。`attachSession()` 是共享获取的便捷方法。`createSession()` 为新创建的会话返回独占 lease。
+应用层观察 API（例如编码代理的 `Transcript`）都是普通 Chord 服务。客户端不解释它们的快照或更新。
 
-调用 `dispose()` 或 `detach()` 只释放该 lease。lease 一旦开始释放就会拒绝后续命令。最后一个 lease 释放后，客户端才会发送协议层的 detach 请求。显式 `detach()` 失败时，lease 会重新变为可用以便重试。面向清理的 `dispose()` 失败时会报告协议错误，但会放弃本地所有权；`PiClient` 会在下一次获取之前调和这次失败的协议清理。已释放的 lease 会变为不可用，但不影响其他共享 lease。服务端移除或断开连接会使该挂接上的所有 lease 失效；对已失效 lease 调用 dispose 是空操作。客户端断开时命令会以 `PiDisconnectedError` 失败；客户端仍连接但 lease 正在释放、已释放或已失效时，命令会以 `PiSessionDetachedError` 失败。lease 实现了 `AsyncDisposable`。
+断开连接或 dispose 时，待处理请求会在本地被拒绝，但已接受的工作可能在 attachment 释放前于远端完成。客户端会清除实时 attachment 路由。它不会自动重连或重放请求。断开后需调用 `reconnect()`，通过应用的管理服务重新挂接，并且只显式重试已知安全的操作。
 
-`subscribe()` 观察权威快照。`onEvent()` 观察协议事件。二者都返回取消订阅函数。服务端返回的结构化错误会以 `PiServerError` 暴露。
+实验性本地 coordinator 只提供稳定端点并中继流量。可替换的服务端进程在公共客户端协议之外管理 Session 和 worker 生命周期。
 
-## 限制与安全
+传输 handler 的调用方式如下：
 
-`PiClientOptions.maxFrameLength` 限制入站和出站 CBOR payload。客户端和服务端应配置匹配的上限。传输层应另外限制排队中的出站字节，并保持发送顺序。
+- 入站字节调用 `handlers.onData(chunk)`；
+- 有序终止关闭调用 `handlers.onClose()`；
+- 传输失败调用 `handlers.onError(error)`。
 
-把对端视为不可信。使用带适当访问控制的安全传输，并在建立传输时完成认证。
-
-订阅者抛出的异常与协议状态隔离。可在 `PiClientOptions` 中设置 `onListenerError`，把它们报告到应用日志或诊断系统。
+传输 factory 每次尝试都要创建一条全新且已认证的连接。请求按 ID 关联，服务端失败以 `ServerError` 暴露。
 
 ## Unix domain socket
 
-Node.js 和 Bun 的调用方可以使用单独导出的 Unix domain socket 传输：
+Node.js 和 Bun 的调用方可以使用独立的 Unix transport：
 
 ```ts
-import { PiClient } from "@earendil-works/pi-client";
+import { Client } from "@earendil-works/pi-client";
 import { createUnixTransportFactory } from "@earendil-works/pi-client/unix";
 
-const client = new PiClient({
-  transportFactory: createUnixTransportFactory({
-    path: "/tmp/pi.sock",
-  }),
+const client = new Client({
+  serverId: "01234567-89ab-4def-8123-456789abcdef",
+  transportFactory: createUnixTransportFactory({ path: "/tmp/pi.sock" }),
 });
-
 await client.connect();
 ```
 
-`maxPendingBytes` 限制排队中的出站数据，默认是协议帧上限的四倍。传输保持发送顺序，并在每个 send resolve 之前等待 socket 背压。
+Unix discovery 会扫描显式指定的物理路由目录，根据文件名推导预期的 server ID，并通过现有握手验证：
 
-`@earendil-works/pi-client` 根入口仍与传输和运行时无关。导入兼容 Node 的传输时，必须显式使用 `@earendil-works/pi-client/unix` 子路径。
+```ts
+import { discoverUnixServers } from "@earendil-works/pi-client/unix";
+
+const routes = await discoverUnixServers({ directory: "/run/user/1000/pi" });
+// [{ serverId: "...", path: "/run/user/1000/pi/<serverId>.sock" }]
+```
+
+格式错误的条目、非 socket、过期或无响应的端点，以及 server ID 不匹配项都会被忽略。Discovery 是只读的，并发探测最多 16 个 socket。意外的文件系统或 socket 错误会使 discovery 失败。传入 `timeoutMs` 可覆盖默认探测超时。
+
+`ClientOptions.maxFrameLength` 限制协议 payload。`maxPendingBytes` 限制排队中的 Unix transport 输出。两端应配置匹配的上限。

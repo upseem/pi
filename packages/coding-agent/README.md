@@ -157,7 +157,7 @@ Pi 也支持 llama.cpp 路由服务器。用 `/login llama.cpp` 配置，用 `/l
 
 - **启动头** - 显示快捷键（`/hotkeys` 查看全部）、已加载的 AGENTS.md 文件、提示模板、skills 和扩展
 - **消息** - 你的消息、助手回复、工具调用和结果、通知、错误，以及扩展 UI
-- **编辑器** - 输入位置；边框颜色表示思考级别
+- **编辑器** - 输入位置；边框颜色表示思考级别，边框还会显示流式工作指示器
 - **页脚** - 工作目录、会话名、总 token/缓存用量（`↑` 输入、`↓` 输出、`R` 缓存读、`W` 缓存写、`CH` 最近缓存命中率）、费用、上下文用量、当前模型。总计包含助手回复、工具上报的用量，以及摘要生成。
 
 编辑器可被其他 UI 临时替换，例如内置 `/settings`，或扩展提供的自定义 UI（如让用户以结构化格式回答模型问题的问答工具）。[扩展](#extensions) 也可以替换编辑器、在其上方/下方添加控件、状态行、自定义页脚或覆盖层。
@@ -714,6 +714,8 @@ pi --thinking high "Solve this complex problem"
 | `PI_CODING_AGENT_DIR` | 覆盖配置目录（默认：`~/.pi/agent`） |
 | `PI_CODING_AGENT_SESSION_DIR` | 覆盖会话存储目录（会被 `--session-dir` 覆盖） |
 | `PI_PACKAGE_DIR` | 覆盖包目录（适用于 Nix/Guix 等 store 路径分词效果差的环境） |
+| `PI_SERVER_DIR` | 覆盖实验性服务器的配置与套接字目录（默认：`~/.pi/server`） |
+| `PI_SERVER_ID` | 未传入 `--server-id` 时，选择实验性服务器的逻辑 ID |
 | `PI_OFFLINE` | 禁用启动时的网络操作，包括更新检查、包更新检查以及安装/更新遥测 |
 | `PI_SKIP_VERSION_CHECK` | 跳过启动时的 Pi 版本更新检查。这会阻止向 `pi.dev` 请求最新版本 |
 | `PI_TELEMETRY` | 覆盖安装/更新遥测与提供商归因头。用 `1`/`true`/`yes` 启用，或 `0`/`false`/`no` 禁用。这不会禁用更新检查 |

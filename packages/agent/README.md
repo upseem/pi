@@ -46,6 +46,11 @@ agent.subscribe((event) => {
 await agent.prompt("Hello!");
 ```
 
+<a id="experimental-facet-services"></a>
+## 实验性 facet 服务
+
+与传输无关的 facet 服务原语位于 `@earendil-works/chord`。agent core 不导出服务运行时。
+
 <a id="core-concepts"></a>
 ## 核心概念
 

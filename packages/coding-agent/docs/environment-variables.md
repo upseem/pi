@@ -86,6 +86,8 @@ const bashTool = createBashTool(cwd, {
 | `PI_CODING_AGENT_DIR` | 覆盖配置目录；默认为 `~/.pi/agent` |
 | `PI_CODING_AGENT_SESSION_DIR` | 覆盖会话存储目录；会被 `--session-dir` 覆盖 |
 | `PI_PACKAGE_DIR` | 覆盖软件包目录，适用于 Nix/Guix store 路径 |
+| `PI_SERVER_DIR` | 覆盖实验性服务器的配置与套接字目录；默认为 `~/.pi/server` |
+| `PI_SERVER_ID` | 未传入 `--server-id` 时，选择实验性服务器的逻辑 ID |
 | `PI_OFFLINE` | 禁用启动时的网络操作，包括更新检查、软件包更新，以及安装/更新遥测 |
 | `PI_SKIP_VERSION_CHECK` | 禁用向 `pi.dev` 请求最新版本 |
 | `PI_TELEMETRY` | 覆盖安装/更新遥测与提供商归因头：`1`/`true`/`yes` 或 `0`/`false`/`no` |

@@ -27,6 +27,7 @@
 
 | 软件包 | 说明 |
 |---------|-------------|
+| **[@earendil-works/chord](packages/chord)** | 面向服务、复制状态、RPC 和插件的独立应用组合运行时 |
 | **[@earendil-works/pi-telemetry](packages/telemetry)** | 厂商无关的遥测约定、参考适配器、一致性测试和类型化 schema |
 | **[@earendil-works/pi-ai](packages/ai)** | 统一的多提供商 LLM API（OpenAI、Anthropic、Google 等） |
 | **[@earendil-works/pi-agent-core](packages/agent)** | 带工具调用和状态管理的代理运行时 |

@@ -93,7 +93,8 @@ vim ~/.pi/agent/themes/my-theme.json
     "text": "",
     "thinkingText": "secondary",
     "selectedBg": "#2d2d30",
-    "scrollbarThumb": "#555566",
+    "scrollbarTrack": "secondary",
+    "scrollbarThumb": "",
     "searchMatchBg": "#2d2d30",
     "searchMatchText": "",
     "userMessageBg": "#2d2d30",
@@ -166,17 +167,17 @@ vim ~/.pi/agent/themes/my-theme.json
 
 - `name` 必填，必须唯一，且不能包含 `/`。
 - `vars` 可选。在此定义可复用颜色，再在 `colors` 中引用。
-- `colors` 必须定义全部 51 个必填 token。`thinkingMax`、`scrollbarThumb` 以及两个搜索高亮 token 为可选，回退规则见下文。
+- `colors` 必须定义全部 53 个必填 token。`thinkingMax` 和两个搜索高亮 token 为可选，回退规则见下文。
 
 `$schema` 字段可启用编辑器自动补全与校验。
 
 <a id="color-tokens"></a>
 ## 颜色 Token
 
-每个主题必须定义全部 51 个必填颜色 token。可选 token 用于兼容已有主题：`thinkingMax` 回退到 `thinkingXhigh`，`scrollbarThumb` 和 `searchMatchBg` 回退到 `selectedBg`，`searchMatchText` 回退到 `text`。其他搜索匹配使用 `searchMatchBg` 上的 `searchMatchText` 并加下划线；当前匹配则对调该前景/背景，并使用粗体。
+每个主题必须定义全部 53 个必填颜色 token。可选 token 用于兼容已有主题：`thinkingMax` 回退到 `thinkingXhigh`，`searchMatchBg` 回退到 `selectedBg`，`searchMatchText` 回退到 `text`。其他搜索匹配使用 `searchMatchBg` 上的 `searchMatchText` 并加下划线；当前匹配则对调该前景/背景，并使用粗体。
 
-<a id="core-ui-11-colors"></a>
-### 核心 UI（11 色）
+<a id="core-ui-13-colors"></a>
+### 核心 UI（13 色）
 
 | Token | 用途 |
 |-------|---------|
@@ -191,14 +192,15 @@ vim ~/.pi/agent/themes/my-theme.json
 | `dim` | 第三级文本 |
 | `text` | 默认文本（通常为 `""`） |
 | `thinkingText` | 思考块文本 |
+| `scrollbarTrack` | 全屏滚动条轨道前景色 |
+| `scrollbarThumb` | 全屏滚动条滑块前景色，普通状态和展开状态共用 |
 
-<a id="backgrounds--content-11-required-3-optional"></a>
-### 背景与内容（11 个必填，3 个可选）
+<a id="backgrounds--content-11-required-2-optional"></a>
+### 背景与内容（11 个必填，2 个可选）
 
 | Token | 用途 |
 |-------|---------|
 | `selectedBg` | 选中行背景 |
-| `scrollbarThumb` | 全屏滚动条滑块背景；可选，回退到 `selectedBg` |
 | `searchMatchBg` | 会话搜索匹配背景，以及当前匹配的文本色；可选，回退到 `selectedBg` |
 | `searchMatchText` | 会话搜索匹配文本，以及当前匹配的背景色；可选，回退到 `text` |
 | `userMessageBg` | 用户消息背景 |
