@@ -7,4 +7,8 @@ describe("built-in slash commands", () => {
 			expect(command.description, command.name).toMatch(/\p{Script=Han}/u);
 		}
 	});
+
+	it("includes /lang", () => {
+		expect(BUILTIN_SLASH_COMMANDS.some((command) => command.name === "lang")).toBe(true);
+	});
 });

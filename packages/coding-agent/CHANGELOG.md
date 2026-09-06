@@ -5,6 +5,7 @@
 ### Added
 
 - Added a type-safe i18n foundation with `en` / `zh-CN` catalogs, locale resolution, ambient translator, and English fallback for missing translations.
+- Added `--lang auto|en|zh-CN`, persistent `language` settings, and `/lang` for interactive language switching.
 
 ### Changed
 

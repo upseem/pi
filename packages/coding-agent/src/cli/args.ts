@@ -43,6 +43,8 @@ export interface Args {
 	noPromptTemplates?: boolean;
 	themes?: string[];
 	useTheme?: string;
+	/** Single-run language override: auto | en | zh-CN */
+	lang?: string;
 	noThemes?: boolean;
 	noContextFiles?: boolean;
 	listModels?: string | true;
@@ -66,6 +68,35 @@ export function isValidThinkingLevel(level: string): level is ThinkingLevel {
 export function normalizeSessionName(value: string): string | undefined {
 	const name = value.trim();
 	return name.length > 0 ? name : undefined;
+}
+
+const VALID_LANG_VALUES = ["auto", "en", "zh-CN"] as const;
+
+export type LangFlagValue = (typeof VALID_LANG_VALUES)[number];
+
+export function isValidLangFlag(value: string): value is LangFlagValue {
+	return (VALID_LANG_VALUES as readonly string[]).includes(value);
+}
+
+/**
+ * Lightweight argv scan for `--lang` before full `parseArgs`, so early help/errors
+ * can use the correct locale.
+ */
+export function peekLangFlag(args: string[]): string | undefined {
+	for (let i = 0; i < args.length; i++) {
+		const arg = args[i];
+		if (arg === "--") {
+			break;
+		}
+		if (arg === "--lang") {
+			const value = args[i + 1];
+			if (value === undefined || value.startsWith("-")) {
+				return undefined;
+			}
+			return value;
+		}
+	}
+	return undefined;
 }
 
 export function parseArgs(args: string[]): Args {
@@ -183,6 +214,20 @@ export function parseArgs(args: string[]): Args {
 				result.diagnostics.push({ type: "error", message: "--use-theme requires a theme name" });
 			} else {
 				result.useTheme = themeName;
+				i++;
+			}
+		} else if (arg === "--lang") {
+			const lang = args[i + 1];
+			if (lang === undefined || lang.startsWith("-")) {
+				result.diagnostics.push({ type: "error", message: "--lang requires auto, en, or zh-CN" });
+			} else if (!isValidLangFlag(lang)) {
+				i++;
+				result.diagnostics.push({
+					type: "error",
+					message: `Invalid language "${lang}". Valid values: auto, en, zh-CN`,
+				});
+			} else {
+				result.lang = lang;
 				i++;
 			}
 		} else if (arg === "--no-skills" || arg === "-ns") {
@@ -307,6 +352,7 @@ ${chalk.bold("选项:")}
   --no-prompt-templates, -np     禁用提示模板发现和加载
   --theme <path>                 加载主题文件或目录（可多次使用）
   --use-theme <name[/name]>      设置本次运行的初始交互主题
+  --lang auto|en|zh-CN           设置本次运行的界面语言（auto 按系统语言检测）
   --no-themes                    禁用主题发现和加载
   --no-context-files, -nc        禁用 AGENTS.md 和 CLAUDE.md 的发现和加载
   --export <file>                将会话文件导出为 HTML 后退出

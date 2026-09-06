@@ -18,6 +18,7 @@ export interface BuiltinSlashCommand {
 
 export const BUILTIN_SLASH_COMMANDS: ReadonlyArray<BuiltinSlashCommand> = [
 	{ name: "settings", description: "打开设置菜单" },
+	{ name: "lang", description: "切换界面语言" },
 	{ name: "model", description: "选择模型（打开选择器界面）", argumentHint: "<provider/model>" },
 	{ name: "tree", description: "浏览会话树（切换分支）" },
 	{ name: "thinking", description: "设置思考级别", argumentHint: "<level>" },

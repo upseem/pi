@@ -7,6 +7,11 @@ export const en = {
 	"lang.switched": "Language set to {locale}",
 	"lang.current": "Current language: {locale}",
 	"lang.unsupported": "Unsupported language: {locale}",
+	"lang.menu.title": "Language",
+	"lang.menu.description": "Choose UI language. Auto follows the system locale.",
+	"lang.option.en": "English",
+	"lang.option.zh-CN": "简体中文",
+	"lang.option.auto": "Auto (system)",
 	"tui.select.noMatches": "No matching commands",
 } as const;
 

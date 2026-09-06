@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { normalizeSessionName, parseArgs } from "../src/cli/args.ts";
+import { normalizeSessionName, parseArgs, peekLangFlag } from "../src/cli/args.ts";
 
 describe("parseArgs", () => {
 	describe("--version flag", () => {
@@ -291,6 +291,46 @@ describe("parseArgs", () => {
 			expect(result.useTheme).toBeUndefined();
 			expect(result.print).toBe(true);
 			expect(result.diagnostics).toEqual([{ type: "error", message: "--use-theme requires a theme name" }]);
+		});
+	});
+
+	describe("--lang flag", () => {
+		test("parses --lang en", () => {
+			const result = parseArgs(["--lang", "en"]);
+			expect(result.lang).toBe("en");
+		});
+
+		test("parses --lang zh-CN", () => {
+			const result = parseArgs(["--lang", "zh-CN"]);
+			expect(result.lang).toBe("zh-CN");
+		});
+
+		test("parses --lang auto", () => {
+			const result = parseArgs(["--lang", "auto"]);
+			expect(result.lang).toBe("auto");
+		});
+
+		test("reports when the lang value is missing", () => {
+			const result = parseArgs(["--lang", "--print"]);
+			expect(result.lang).toBeUndefined();
+			expect(result.print).toBe(true);
+			expect(result.diagnostics).toEqual([{ type: "error", message: "--lang requires auto, en, or zh-CN" }]);
+		});
+
+		test("reports invalid lang values", () => {
+			const result = parseArgs(["--lang", "fr"]);
+			expect(result.lang).toBeUndefined();
+			expect(result.diagnostics).toEqual([
+				{ type: "error", message: 'Invalid language "fr". Valid values: auto, en, zh-CN' },
+			]);
+		});
+
+		test("peekLangFlag reads --lang before full parse", () => {
+			expect(peekLangFlag(["--help", "--lang", "zh-CN"])).toBe("zh-CN");
+			expect(peekLangFlag(["--lang", "auto", "--print"])).toBe("auto");
+			expect(peekLangFlag(["--help"])).toBeUndefined();
+			expect(peekLangFlag(["--lang"])).toBeUndefined();
+			expect(peekLangFlag(["--lang", "--help"])).toBeUndefined();
 		});
 	});
 

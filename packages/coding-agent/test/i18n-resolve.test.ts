@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { normalizeLocaleTag, resolveLocale } from "../src/core/i18n/resolve.ts";
+import { normalizeLocaleTag, resolveAppLocale, resolveLocale } from "../src/core/i18n/resolve.ts";
 
 describe("normalizeLocaleTag", () => {
 	it("normalizes underscore and charset suffixes to BCP47", () => {
@@ -125,5 +125,28 @@ describe("resolveLocale", () => {
 	it("does not read process.env when env is provided", () => {
 		process.env.LC_ALL = "zh_CN.UTF-8";
 		expect(resolveLocale({ env: { LANG: "en_US.UTF-8" } })).toBe("en");
+	});
+});
+
+describe("resolveAppLocale", () => {
+	it("lets --lang auto ignore settings and re-detect from env", () => {
+		expect(
+			resolveAppLocale({
+				cliLang: "auto",
+				settingsLanguage: "en",
+				env: { LANG: "zh_CN.UTF-8" },
+				systemLocale: "en-US",
+			}),
+		).toBe("zh-CN");
+	});
+
+	it("keeps non-auto --lang above settings", () => {
+		expect(
+			resolveAppLocale({
+				cliLang: "en",
+				settingsLanguage: "zh-CN",
+				env: { LANG: "zh_CN.UTF-8" },
+			}),
+		).toBe("en");
 	});
 });

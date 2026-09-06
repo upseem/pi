@@ -80,6 +80,8 @@ import type {
 } from "../../core/extensions/index.ts";
 import { FooterDataProvider, type ReadonlyFooterDataProvider } from "../../core/footer-data-provider.ts";
 import { configureHttpDispatcher, formatHttpIdleTimeoutMs } from "../../core/http-dispatcher.ts";
+import type { LanguageSetting } from "../../core/i18n/index.ts";
+import { t } from "../../core/i18n/index.ts";
 import { type AppKeybinding, KeybindingsManager } from "../../core/keybindings.ts";
 import { createCompactionSummaryMessage } from "../../core/messages.ts";
 import {
@@ -127,6 +129,7 @@ import { ExtensionInputComponent } from "./components/extension-input.ts";
 import { ExtensionSelectorComponent } from "./components/extension-selector.ts";
 import { FooterComponent, formatTokens } from "./components/footer.ts";
 import { formatKeyText, keyDisplayText, keyHint, keyText, rawKeyHint } from "./components/keybinding-hints.ts";
+import { LanguageSelectorComponent } from "./components/language-selector.ts";
 import { LoginDialogComponent } from "./components/login-dialog.ts";
 import { createMermaidMarkdownTransformer } from "./components/mermaid.ts";
 import { ModelSelectorComponent } from "./components/model-selector.ts";
@@ -154,6 +157,7 @@ import { TrustSelectorComponent } from "./components/trust-selector.ts";
 import { UserMessageComponent } from "./components/user-message.ts";
 import { UserMessageSelectorComponent } from "./components/user-message-selector.ts";
 import { editInExternalEditor } from "./external-editor.ts";
+import { LocaleController } from "./locale-controller.ts";
 import { refreshModelCatalogs } from "./model-catalog-refresh.ts";
 import { getModelSearchText } from "./model-search.ts";
 import { shareSession } from "./session-share.ts";
@@ -370,6 +374,8 @@ export interface InteractiveModeOptions {
 	tuiMode?: TuiMode;
 	/** Initial interactive theme setting for this invocation. */
 	initialThemeSetting?: string;
+	/** Initial `--lang` override for this invocation (does not persist until `/lang`). */
+	initialLang?: string;
 }
 
 export class InteractiveMode {
@@ -502,6 +508,7 @@ export class InteractiveMode {
 	};
 	private autoTrustOnReloadCwd: string | undefined;
 	private themeController: InteractiveThemeController;
+	private localeController: LocaleController;
 
 	// Convenience accessors
 	private get session(): AgentSession {
@@ -580,6 +587,11 @@ export class InteractiveMode {
 			showError: (message) => this.showError(message),
 			onChanged: () => this.updateEditorBorderColor(),
 			initialThemeSetting: options.initialThemeSetting,
+		});
+		this.localeController = new LocaleController(this.ui, {
+			getSettingsManager: () => this.settingsManager,
+			onChanged: () => this.refreshLocaleChrome(),
+			cliLang: options.initialLang,
 		});
 	}
 
@@ -907,57 +919,11 @@ export class InteractiveMode {
 		this.isInitialized = true;
 
 		await this.themeController.applyFromSettings();
+		this.localeController.applyInitial();
 
 		// Add header with keybindings from config (unless silenced)
 		if (this.options.verbose || !this.settingsManager.getQuietStartup()) {
-			const logo = theme.bold(theme.fg("accent", APP_NAME)) + theme.fg("dim", ` v${this.version}`);
-
-			// Build startup instructions using keybinding hint helpers
-			const hint = (keybinding: AppKeybinding, description: string) => keyHint(keybinding, description);
-
-			const expandedInstructions = [
-				hint("app.interrupt", "to interrupt"),
-				hint("app.clear", "to clear"),
-				rawKeyHint(`${keyText("app.clear")} twice`, "to exit"),
-				hint("app.exit", "to exit (empty)"),
-				hint("app.suspend", "to suspend"),
-				keyHint("tui.editor.deleteToLineEnd", "to delete to end"),
-				hint("app.thinking.cycle", "to cycle thinking level"),
-				rawKeyHint(`${keyText("app.model.cycleForward")}/${keyText("app.model.cycleBackward")}`, "to cycle models"),
-				hint("app.model.select", "to select model"),
-				hint("app.tools.expand", "to expand tools"),
-				hint("app.thinking.toggle", "to expand thinking"),
-				hint("app.editor.external", "for external editor"),
-				rawKeyHint("/", "for commands"),
-				rawKeyHint("!", "to run bash"),
-				rawKeyHint("!!", "to run bash (no context)"),
-				hint("app.message.followUp", "to queue follow-up"),
-				hint("app.message.dequeue", "to edit all queued messages"),
-				hint("app.clipboard.pasteImage", "to paste image (with text fallback)"),
-				rawKeyHint("drop files", "to attach"),
-			].join("\n");
-			const compactInstructions = [
-				hint("app.interrupt", "interrupt"),
-				rawKeyHint(`${keyText("app.clear")}/${keyText("app.exit")}`, "clear/exit"),
-				rawKeyHint("/", "commands"),
-				rawKeyHint("!", "bash"),
-				hint("app.tools.expand", "more"),
-			].join(theme.fg("muted", " · "));
-			const compactOnboarding = theme.fg(
-				"dim",
-				`Press ${keyText("app.tools.expand")} to show full startup help and loaded resources.`,
-			);
-			const onboarding = theme.fg(
-				"dim",
-				`Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.`,
-			);
-			this.builtInHeader = new ExpandableText(
-				() => `${logo}\n${compactInstructions}\n${compactOnboarding}\n\n${onboarding}`,
-				() => `${logo}\n${expandedInstructions}\n\n${onboarding}`,
-				this.getStartupExpansionState(),
-				1,
-				0,
-			);
+			this.builtInHeader = this.createBuiltInHeader(false);
 
 			// Setup UI layout
 			this.headerContainer.addChild(new Spacer(1));
@@ -965,7 +931,7 @@ export class InteractiveMode {
 			this.headerContainer.addChild(new Spacer(1));
 		} else {
 			// Minimal header when silenced
-			this.builtInHeader = new Text("", 0, 0);
+			this.builtInHeader = this.createBuiltInHeader(true);
 			this.headerContainer.addChild(this.builtInHeader);
 		}
 		this.ui.requestRender();
@@ -2972,6 +2938,11 @@ export class InteractiveMode {
 				this.editor.setText("");
 				return;
 			}
+			if (text === "/lang") {
+				this.showLangSelector();
+				this.editor.setText("");
+				return;
+			}
 			if (text === "/scoped-models") {
 				this.editor.setText("");
 				await this.showModelsSelector();
@@ -4550,6 +4521,107 @@ export class InteractiveMode {
 		this.editorContainer.clear();
 		this.editorContainer.addChild(created.component);
 		this.ui.setFocus(created.focus);
+		this.ui.requestRender();
+	}
+
+	private showLangSelector(): void {
+		this.showSelector((done) => {
+			const selector = new LanguageSelectorComponent(
+				this.localeController.getLanguageSelection(),
+				(setting: LanguageSetting) => {
+					done();
+					this.localeController.setLanguage(setting);
+					const active = this.localeController.getActiveLocale();
+					this.showStatus(t("lang.switched", { locale: setting === "auto" ? `auto → ${active}` : setting }));
+				},
+				() => {
+					done();
+				},
+			);
+			return { component: selector, focus: selector.getSelectList() };
+		});
+	}
+
+	private createBuiltInHeader(minimal: boolean): Component {
+		if (minimal) {
+			return new Text("", 0, 0);
+		}
+
+		const logo = theme.bold(theme.fg("accent", APP_NAME)) + theme.fg("dim", ` v${this.version}`);
+		const hint = (keybinding: AppKeybinding, description: string) => keyHint(keybinding, description);
+
+		const expandedInstructions = [
+			hint("app.interrupt", "to interrupt"),
+			hint("app.clear", "to clear"),
+			rawKeyHint(`${keyText("app.clear")} twice`, "to exit"),
+			hint("app.exit", "to exit (empty)"),
+			hint("app.suspend", "to suspend"),
+			keyHint("tui.editor.deleteToLineEnd", "to delete to end"),
+			hint("app.thinking.cycle", "to cycle thinking level"),
+			rawKeyHint(`${keyText("app.model.cycleForward")}/${keyText("app.model.cycleBackward")}`, "to cycle models"),
+			hint("app.model.select", "to select model"),
+			hint("app.tools.expand", "to expand tools"),
+			hint("app.thinking.toggle", "to expand thinking"),
+			hint("app.editor.external", "for external editor"),
+			rawKeyHint("/", "for commands"),
+			rawKeyHint("!", "to run bash"),
+			rawKeyHint("!!", "to run bash (no context)"),
+			hint("app.message.followUp", "to queue follow-up"),
+			hint("app.message.dequeue", "to edit all queued messages"),
+			hint("app.clipboard.pasteImage", "to paste image (with text fallback)"),
+			rawKeyHint("drop files", "to attach"),
+		].join("\n");
+		const compactInstructions = [
+			hint("app.interrupt", "interrupt"),
+			rawKeyHint(`${keyText("app.clear")}/${keyText("app.exit")}`, "clear/exit"),
+			rawKeyHint("/", "commands"),
+			rawKeyHint("!", "bash"),
+			hint("app.tools.expand", "more"),
+		].join(theme.fg("muted", " · "));
+		const compactOnboarding = theme.fg(
+			"dim",
+			`Press ${keyText("app.tools.expand")} to show full startup help and loaded resources.`,
+		);
+		const onboarding = theme.fg(
+			"dim",
+			`Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.`,
+		);
+		return new ExpandableText(
+			() => `${logo}\n${compactInstructions}\n${compactOnboarding}\n\n${onboarding}`,
+			() => `${logo}\n${expandedInstructions}\n\n${onboarding}`,
+			this.getStartupExpansionState(),
+			1,
+			0,
+		);
+	}
+
+	/**
+	 * Rebuild long-lived chrome after a locale change.
+	 * Existing transcript messages are intentionally left as rendered.
+	 */
+	private refreshLocaleChrome(): void {
+		if (!this.builtInHeader) {
+			return;
+		}
+
+		const quiet = !(this.options.verbose || !this.settingsManager.getQuietStartup());
+		const previousHeader = this.builtInHeader;
+		this.builtInHeader = this.createBuiltInHeader(quiet);
+		if (isExpandable(this.builtInHeader)) {
+			this.builtInHeader.setExpanded(this.toolOutputExpanded);
+		}
+
+		if (!this.customHeader) {
+			const index = this.headerContainer.children.indexOf(previousHeader);
+			if (index !== -1) {
+				this.headerContainer.children[index] = this.builtInHeader;
+			}
+		}
+
+		this.footer.invalidate();
+		this.setupAutocompleteProvider();
+		this.updateEditorBorderColor();
+		this.ui.invalidate();
 		this.ui.requestRender();
 	}
 

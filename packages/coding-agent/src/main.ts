@@ -9,7 +9,15 @@ import { createInterface } from "node:readline";
 import { type ImageContent, modelsAreEqual } from "@earendil-works/pi-ai";
 import { setCapabilityOverrides } from "@earendil-works/pi-tui";
 import chalk from "chalk";
-import { type Args, type Mode, normalizeSessionName, parseArgs, printHelp } from "./cli/args.ts";
+import {
+	type Args,
+	isValidLangFlag,
+	type Mode,
+	normalizeSessionName,
+	parseArgs,
+	peekLangFlag,
+	printHelp,
+} from "./cli/args.ts";
 import {
 	type AuthCheckResult,
 	checkProviderAuth,
@@ -45,6 +53,7 @@ import { AuthStorage, ReadOnlyAuthStorage } from "./core/auth-storage.ts";
 import { exportFromFile } from "./core/export-html/index.ts";
 import type { InlineExtension } from "./core/extensions/types.ts";
 import { applyHttpProxySettings, configureHttpDispatcher } from "./core/http-dispatcher.ts";
+import { applyAppLocale, resolveAppLocale } from "./core/i18n/index.ts";
 import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.ts";
 import { ModelRuntime } from "./core/model-runtime.ts";
 import { restoreStdout, takeOverStdout } from "./core/output-guard.ts";
@@ -559,8 +568,34 @@ export interface MainOptions {
 	extensionFactories?: InlineExtension[];
 }
 
+function readSystemLocale(): string | undefined {
+	try {
+		return Intl.DateTimeFormat().resolvedOptions().locale;
+	} catch {
+		return undefined;
+	}
+}
+
+function applyResolvedLocale(cliLang?: string, settingsLanguage?: string): void {
+	applyAppLocale(
+		resolveAppLocale({
+			cliLang,
+			settingsLanguage,
+			env: process.env,
+			systemLocale: readSystemLocale(),
+		}),
+	);
+}
+
 export async function main(args: string[], options?: MainOptions) {
 	resetTimings();
+
+	// Phase A: provisional locale from --lang / env so early help and errors are localized.
+	const peekedLang = peekLangFlag(args);
+	if (peekedLang === undefined || isValidLangFlag(peekedLang)) {
+		applyResolvedLocale(peekedLang);
+	}
+
 	const extensionFactories = [...builtInExtensions, ...(options?.extensionFactories ?? [])];
 	const offlineMode = args.includes("--offline") || isTruthyEnvFlag(process.env.PI_OFFLINE);
 	if (offlineMode) {
@@ -651,6 +686,11 @@ export async function main(args: string[], options?: MainOptions) {
 
 	const startupSettingsManager = SettingsManager.create(cwd, agentDir);
 	const startupSettingsDiagnostics = collectSettingsDiagnostics(startupSettingsManager);
+
+	// Phase B: re-resolve with saved settings.language (still before first-time UI).
+	if (parsed.lang === undefined || isValidLangFlag(parsed.lang)) {
+		applyResolvedLocale(parsed.lang, startupSettingsManager.getLanguage());
+	}
 
 	// Experimental first-time setup: theme choice and analytics opt-in.
 	// Runs before any runtime services are created so the chosen settings apply everywhere.
@@ -887,6 +927,11 @@ export async function main(args: string[], options?: MainOptions) {
 	initTheme(settingsManager.getTheme(), appMode === "interactive");
 	time("initTheme");
 
+	// Final locale resolve after session cwd / project settings are known.
+	if (parsed.lang === undefined || isValidLangFlag(parsed.lang)) {
+		applyResolvedLocale(parsed.lang, settingsManager.getLanguage());
+	}
+
 	// Show deprecation warnings in interactive mode
 	if (appMode === "interactive" && deprecationWarnings.length > 0) {
 		await showDeprecationWarnings(deprecationWarnings);
@@ -942,6 +987,7 @@ export async function main(args: string[], options?: MainOptions) {
 			verbose: parsed.verbose,
 			tuiMode: parsed.tuiMode,
 			initialThemeSetting: parsed.useTheme,
+			initialLang: parsed.lang,
 		});
 		if (startupBenchmark) {
 			await interactiveMode.init();

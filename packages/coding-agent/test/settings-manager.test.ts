@@ -217,6 +217,31 @@ describe("SettingsManager", () => {
 		});
 	});
 
+	describe("language setting", () => {
+		it("reads, writes, and clears language in global settings", async () => {
+			const settingsPath = join(agentDir, "settings.json");
+			writeFileSync(settingsPath, JSON.stringify({ language: "zh-CN" }));
+
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getLanguage()).toBe("zh-CN");
+
+			manager.setLanguage("en");
+			await manager.flush();
+			expect(JSON.parse(readFileSync(settingsPath, "utf-8")).language).toBe("en");
+
+			manager.clearLanguage();
+			await manager.flush();
+			expect(JSON.parse(readFileSync(settingsPath, "utf-8")).language).toBeUndefined();
+			expect(manager.getLanguage()).toBeUndefined();
+		});
+
+		it("treats language auto as cleared", async () => {
+			const manager = SettingsManager.inMemory({ language: "zh-CN" });
+			manager.setLanguage("auto");
+			expect(manager.getLanguage()).toBeUndefined();
+		});
+	});
+
 	describe("error tracking", () => {
 		it("should collect and clear load errors via drainErrors", () => {
 			const globalSettingsPath = join(agentDir, "settings.json");

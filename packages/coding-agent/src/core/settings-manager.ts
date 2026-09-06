@@ -101,6 +101,8 @@ export interface Settings {
 	steeringMode?: "all" | "one-at-a-time";
 	followUpMode?: "all" | "one-at-a-time";
 	theme?: string;
+	/** UI language: "en" | "zh-CN". Absent or "auto" means detect from system. */
+	language?: string;
 	compaction?: CompactionSettings;
 	branchSummary?: BranchSummarySettings;
 	retry?: RetrySettings;
@@ -776,6 +778,35 @@ export class SettingsManager {
 	setTheme(theme: string): void {
 		this.globalSettings.theme = theme;
 		this.markModified("theme");
+		this.save();
+	}
+
+	getLanguage(): string | undefined {
+		const value = this.settings.language;
+		if (typeof value !== "string") {
+			return undefined;
+		}
+		const trimmed = value.trim();
+		if (!trimmed || trimmed.toLowerCase() === "auto") {
+			return undefined;
+		}
+		return trimmed;
+	}
+
+	setLanguage(language: string): void {
+		const trimmed = language.trim();
+		if (!trimmed || trimmed.toLowerCase() === "auto") {
+			this.clearLanguage();
+			return;
+		}
+		this.globalSettings.language = trimmed;
+		this.markModified("language");
+		this.save();
+	}
+
+	clearLanguage(): void {
+		delete this.globalSettings.language;
+		this.markModified("language");
 		this.save();
 	}
 

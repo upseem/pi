@@ -73,3 +73,18 @@ export function resolveLocale(inputs: ResolveLocaleInputs): LocaleId {
 
 	return "en";
 }
+
+/**
+ * App-level locale resolve. `--lang auto` ignores saved settings and re-detects
+ * from env / system locale.
+ */
+export function resolveAppLocale(inputs: ResolveLocaleInputs): LocaleId {
+	const cliLang = inputs.cliLang?.trim();
+	if (cliLang && cliLang.toLowerCase() === "auto") {
+		return resolveLocale({
+			env: inputs.env,
+			systemLocale: inputs.systemLocale,
+		});
+	}
+	return resolveLocale(inputs);
+}

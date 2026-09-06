@@ -12,8 +12,9 @@
  * Only user-visible CLI/TUI copy belongs in catalogs.
  */
 
+export { applyAppLocale, type LanguageSetting } from "./apply.ts";
 export type { MessageKey } from "./locales/en.ts";
-export { normalizeLocaleTag, type ResolveLocaleInputs, resolveLocale } from "./resolve.ts";
+export { normalizeLocaleTag, type ResolveLocaleInputs, resolveAppLocale, resolveLocale } from "./resolve.ts";
 export {
 	createTranslator,
 	getLocale,
@@ -25,3 +26,4 @@ export {
 	t,
 } from "./translator.ts";
 export type { LocaleId } from "./types.ts";
+export { SUPPORTED_LOCALES } from "./types.ts";
