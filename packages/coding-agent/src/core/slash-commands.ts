@@ -1,4 +1,5 @@
 import { APP_NAME } from "../config.ts";
+import { t } from "./i18n/index.ts";
 import type { SourceInfo } from "./source-info.ts";
 
 export type SlashCommandSource = "extension" | "prompt" | "skill";
@@ -16,29 +17,156 @@ export interface BuiltinSlashCommand {
 	argumentHint?: string;
 }
 
+/**
+ * Built-in slash commands. Descriptions resolve via the ambient locale at access time
+ * so `/lang` switches update autocomplete after refreshLocaleChrome.
+ */
 export const BUILTIN_SLASH_COMMANDS: ReadonlyArray<BuiltinSlashCommand> = [
-	{ name: "settings", description: "打开设置菜单" },
-	{ name: "lang", description: "切换界面语言" },
-	{ name: "model", description: "选择模型（打开选择器界面）", argumentHint: "<provider/model>" },
-	{ name: "tree", description: "浏览会话树（切换分支）" },
-	{ name: "thinking", description: "设置思考级别", argumentHint: "<level>" },
-	{ name: "scoped-models", description: "启用或禁用供 Ctrl+P 循环切换的模型" },
-	{ name: "export", description: "导出会话（默认 HTML，也可指定 .html/.jsonl 路径）" },
-	{ name: "import", description: "从 JSONL 文件导入并恢复会话" },
-	{ name: "share", description: "以私密 GitHub gist 分享会话" },
-	{ name: "copy", description: "将上一条代理消息复制到剪贴板" },
-	{ name: "name", description: "设置会话显示名称" },
-	{ name: "session", description: "显示会话信息和统计" },
-	{ name: "changelog", description: "显示变更日志条目" },
-	{ name: "hotkeys", description: "显示全部键盘快捷键" },
-	{ name: "fork", description: "从之前的用户消息创建新分支会话" },
-	{ name: "clone", description: "在当前位置复制当前会话" },
-	{ name: "trust", description: "保存项目信任决定，供以后会话使用" },
-	{ name: "login", description: "配置提供商认证", argumentHint: "<provider>" },
-	{ name: "logout", description: "移除提供商认证" },
-	{ name: "new", description: "开始新会话" },
-	{ name: "compact", description: "手动压缩会话上下文" },
-	{ name: "resume", description: "恢复其他会话" },
-	{ name: "reload", description: "重新加载快捷键、扩展、skills、提示、主题和上下文文件" },
-	{ name: "quit", description: `退出 ${APP_NAME}` },
+	{
+		name: "settings",
+		get description() {
+			return t("slash.settings.description");
+		},
+	},
+	{
+		name: "lang",
+		get description() {
+			return t("slash.lang.description");
+		},
+	},
+	{
+		name: "model",
+		get description() {
+			return t("slash.model.description");
+		},
+		argumentHint: "<provider/model>",
+	},
+	{
+		name: "tree",
+		get description() {
+			return t("slash.tree.description");
+		},
+	},
+	{
+		name: "thinking",
+		get description() {
+			return t("slash.thinking.description");
+		},
+		argumentHint: "<level>",
+	},
+	{
+		name: "scoped-models",
+		get description() {
+			return t("slash.scoped-models.description");
+		},
+	},
+	{
+		name: "export",
+		get description() {
+			return t("slash.export.description");
+		},
+	},
+	{
+		name: "import",
+		get description() {
+			return t("slash.import.description");
+		},
+	},
+	{
+		name: "share",
+		get description() {
+			return t("slash.share.description");
+		},
+	},
+	{
+		name: "copy",
+		get description() {
+			return t("slash.copy.description");
+		},
+	},
+	{
+		name: "name",
+		get description() {
+			return t("slash.name.description");
+		},
+	},
+	{
+		name: "session",
+		get description() {
+			return t("slash.session.description");
+		},
+	},
+	{
+		name: "changelog",
+		get description() {
+			return t("slash.changelog.description");
+		},
+	},
+	{
+		name: "hotkeys",
+		get description() {
+			return t("slash.hotkeys.description");
+		},
+	},
+	{
+		name: "fork",
+		get description() {
+			return t("slash.fork.description");
+		},
+	},
+	{
+		name: "clone",
+		get description() {
+			return t("slash.clone.description");
+		},
+	},
+	{
+		name: "trust",
+		get description() {
+			return t("slash.trust.description");
+		},
+	},
+	{
+		name: "login",
+		get description() {
+			return t("slash.login.description");
+		},
+		argumentHint: "<provider>",
+	},
+	{
+		name: "logout",
+		get description() {
+			return t("slash.logout.description");
+		},
+	},
+	{
+		name: "new",
+		get description() {
+			return t("slash.new.description");
+		},
+	},
+	{
+		name: "compact",
+		get description() {
+			return t("slash.compact.description");
+		},
+	},
+	{
+		name: "resume",
+		get description() {
+			return t("slash.resume.description");
+		},
+	},
+	{
+		name: "reload",
+		get description() {
+			return t("slash.reload.description");
+		},
+	},
+	{
+		name: "quit",
+		get description() {
+			return t("slash.quit.description", { appName: APP_NAME });
+		},
+	},
 ];
