@@ -7,6 +7,8 @@
 - Added a type-safe i18n foundation with `en` / `zh-CN` catalogs, locale resolution, ambient translator, and English fallback for missing translations.
 - Added `--lang auto|en|zh-CN`, persistent `language` settings, and `/lang` for interactive language switching.
 - Migrated CLI `--help`, built-in slash command descriptions, language selector labels, llama slash description, and settings thinking-level descriptions into the i18n catalogs.
+- Added `scripts/sync-upstream.sh` for a no-auto-commit upstream merge plus install/generate/check.
+- Added `scripts/check-i18n.mjs` (wired into `npm run check`) to reject unknown/orphan catalog keys, zh-CN keys outside en, and `core/i18n` imports in system-prompt / tool-schema / rpc / session / telemetry paths.
 
 ### Changed
 
