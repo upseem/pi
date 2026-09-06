@@ -27,16 +27,13 @@ import {
 	validateAuthCommandArgs,
 } from "./cli/auth-command.ts";
 import { resolveCredentialForPrint } from "./cli/credential-print.ts";
-import { cli as experimentalCli } from "./cli/experimental/cli.ts";
-import type { ClientCommand } from "./cli/experimental/commands/client.ts";
-import type { ServerCommand } from "./cli/experimental/commands/server.ts";
 import { processFileArguments } from "./cli/file-processor.ts";
 import { buildInitialMessage } from "./cli/initial-message.ts";
 import { listModels } from "./cli/list-models.ts";
 import { createProjectTrustContext } from "./cli/project-trust.ts";
 import { selectSession } from "./cli/session-picker.ts";
 import { shouldRunFirstTimeSetup, showFirstTimeSetup, showStartupSelector } from "./cli/startup-ui.ts";
-import { APP_NAME, ENV_SESSION_DIR, expandTildePath, getAgentDir, VERSION } from "./config.ts";
+import { APP_NAME, ENV_SESSION_DIR, expandTildePath, getAgentDir, getPackageDir, VERSION } from "./config.ts";
 import { type CreateAgentSessionRuntimeFactory, createAgentSessionRuntime } from "./core/agent-session-runtime.ts";
 import {
 	type AgentSessionRuntimeDiagnostic,
@@ -45,7 +42,6 @@ import {
 } from "./core/agent-session-services.ts";
 import { formatNoModelsAvailableMessage } from "./core/auth-guidance.ts";
 import { AuthStorage, ReadOnlyAuthStorage } from "./core/auth-storage.ts";
-import { areExperimentalFeaturesEnabled } from "./core/experimental.ts";
 import { exportFromFile } from "./core/export-html/index.ts";
 import type { InlineExtension } from "./core/extensions/types.ts";
 import { applyHttpProxySettings, configureHttpDispatcher } from "./core/http-dispatcher.ts";
@@ -65,10 +61,6 @@ import { collectSettingsDiagnostics, deduplicateDiagnostics } from "./core/setti
 import { SettingsManager } from "./core/settings-manager.ts";
 import { printTimings, resetTimings, time } from "./core/timings.ts";
 import { hasTrustRequiringProjectResources, ProjectTrustStore } from "./core/trust-manager.ts";
-import { runClient } from "./experimental/client.ts";
-import { runClientTui } from "./experimental/client-tui.ts";
-import type { RadiusRelayHostStatus } from "./experimental/radius-relay.ts";
-import { startForegroundServer } from "./experimental/server.ts";
 import { builtInExtensions } from "./extensions/index.ts";
 import { runMigrations, showDeprecationWarnings } from "./migrations.ts";
 import { InteractiveMode, runPrintMode, runRpcMode } from "./modes/index.ts";
@@ -76,6 +68,7 @@ import { initTheme, setThemeJsonValidator, stopThemeWatcher } from "./modes/inte
 import { validateThemeJson } from "./modes/interactive/theme/theme-json.ts";
 import { cleanupManagedInstall, handleConfigCommand, handlePackageCommand } from "./package-manager-cli.ts";
 import { isLocalPath, normalizePath, resolvePath } from "./utils/paths.ts";
+import { cleanupWindowsSelfUpdateQuarantine } from "./utils/windows-self-update.ts";
 
 const EXTENSION_LOAD_FAILURE_HINT = `Hint: Start without extensions using "${APP_NAME} -ne".`;
 
@@ -562,111 +555,6 @@ async function promptForMissingSessionCwd(
 	]);
 }
 
-async function waitForTermination(serverClosed: Promise<void>): Promise<void> {
-	await new Promise<void>((resolve, reject) => {
-		const cleanup = (): void => {
-			process.off("SIGINT", finish);
-			process.off("SIGTERM", finish);
-		};
-		const finish = (): void => {
-			cleanup();
-			resolve();
-		};
-		const fail = (error: unknown): void => {
-			cleanup();
-			reject(error);
-		};
-		process.once("SIGINT", finish);
-		process.once("SIGTERM", finish);
-		void serverClosed.then(finish, fail);
-	});
-}
-
-async function runExperimentalServerCommand(command: ServerCommand): Promise<void> {
-	let previousRelayStatus = "";
-	let relayOutputReady = false;
-	let pendingRelayStatus: RadiusRelayHostStatus | undefined;
-	const reportRelayStatus = (status: RadiusRelayHostStatus): void => {
-		const description =
-			status.status === "connected"
-				? "connected"
-				: status.status === "not_authenticated"
-					? "not connected; local only"
-					: status.status === "retrying"
-						? `reconnecting: ${status.error}`
-						: "connecting";
-		if (description === previousRelayStatus || status.status === "connecting") return;
-		previousRelayStatus = description;
-		console.log(`Radius: ${description}`);
-	};
-	const runtime = await startForegroundServer({
-		serverId: command.serverId,
-		sessionDir: command.sessionDir,
-		provider: command.provider,
-		model: command.model,
-		pluginPackages: command.pluginPackages ?? [],
-		relayAuth: command.auth,
-		onRelayStatus(status) {
-			if (relayOutputReady) reportRelayStatus(status);
-			else pendingRelayStatus = status;
-		},
-	});
-	console.log(`Server: ${runtime.serverId}`);
-	console.log(`Socket: ${runtime.socketPath}`);
-	relayOutputReady = true;
-	if (pendingRelayStatus !== undefined) reportRelayStatus(pendingRelayStatus);
-	try {
-		await waitForTermination(runtime.closed);
-	} finally {
-		await runtime.close();
-	}
-}
-
-async function runClientCommand(command: ClientCommand): Promise<void> {
-	if (command.prompt === undefined && process.stdin.isTTY === true && process.stdout.isTTY === true) {
-		await runClientTui(command);
-		return;
-	}
-	let streamedText = false;
-	const result = await runClient(command, {
-		onEvent(event) {
-			if (event.type !== "message_update" || event.frame?.type !== "text_delta") return;
-			streamedText = true;
-			process.stdout.write(event.frame.delta);
-		},
-	});
-	if (result.kind === "attached") {
-		console.log(`${result.serverId}\t${result.sessionId}\tattached`);
-		return;
-	}
-	if (result.kind === "prompted") {
-		if (streamedText) process.stdout.write("\n");
-		else console.log(result.text);
-		return;
-	}
-	for (const session of result.sessions) console.log(`${session.serverId}\t${session.sessionId}`);
-}
-
-async function runExperimentalCommand(args: string[]): Promise<boolean> {
-	if (!areExperimentalFeaturesEnabled() || (args[0] !== "server" && args[0] !== "client")) return false;
-	try {
-		const result = await experimentalCli.execute(args, {
-			runServer: runExperimentalServerCommand,
-			runClient: runClientCommand,
-		});
-		if (!result.ok) {
-			for (const error of result.errors) console.error(chalk.red(`Error: ${error}`));
-			process.exitCode = 1;
-			return true;
-		}
-		return true;
-	} catch (error) {
-		console.error(chalk.red(`Error: ${error instanceof Error ? error.message : String(error)}`));
-		process.exitCode = 1;
-		return true;
-	}
-}
-
 export interface MainOptions {
 	extensionFactories?: InlineExtension[];
 }
@@ -684,11 +572,9 @@ export async function main(args: string[], options?: MainOptions) {
 		return;
 	}
 
-	if (await runExperimentalCommand(args)) {
-		if (args[0] === "client") process.exit(process.exitCode ?? 0);
-		return;
+	if (process.platform === "win32") {
+		cleanupWindowsSelfUpdateQuarantine(getPackageDir());
 	}
-
 	cleanupManagedInstall();
 
 	const cwd = process.cwd();
@@ -698,7 +584,15 @@ export async function main(args: string[], options?: MainOptions) {
 	configureHttpDispatcher();
 
 	if (await handlePackageCommand(args, { extensionFactories })) {
-		process.exit(process.exitCode ?? 0);
+		const exitCode = process.exitCode ?? 0;
+		if (process.platform === "win32" && exitCode === 0 && args[0] === "update") {
+			// We normally prefer process.exit(0) for package commands so bad extensions cannot keep
+			// one-shot commands alive. On Windows, Node can assert after fetch() if process.exit(0)
+			// runs during teardown; let successful `pi update` drain naturally instead.
+			// https://github.com/nodejs/node/issues/56645
+			return;
+		}
+		process.exit(exitCode);
 		return;
 	}
 

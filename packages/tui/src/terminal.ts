@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { setKittyProtocolActive } from "./keys.ts";
 import { isNativeModifierPressed } from "./native-modifiers.ts";
+import { getNativePlatformHelper } from "./native-platform.ts";
 import { StdinBuffer } from "./stdin-buffer.ts";
 
 const TERMINAL_PROGRESS_KEEPALIVE_MS = 1000;
@@ -190,6 +191,12 @@ export class ProcessTerminal implements Terminal {
 		// (SIGWINCH is lost while process is stopped). Unix only, best-effort.
 		refreshTerminalDimensions();
 
+		// On Windows, enable ENABLE_VIRTUAL_TERMINAL_INPUT so the console sends
+		// VT escape sequences (e.g. \x1b[Z for Shift+Tab) instead of raw console
+		// events that lose modifier information. Must run AFTER setRawMode(true)
+		// since that resets console mode flags.
+		this.enableWindowsVTInput();
+
 		// Query Kitty keyboard protocol and fall back to modifyOtherKeys when DA confirms no Kitty response.
 		// See: https://sw.kovidgoyal.net/kitty/keyboard-protocol/
 		this.queryAndEnableKittyProtocol();
@@ -337,7 +344,8 @@ export class ProcessTerminal implements Terminal {
 
 	private forwardInputSequence(sequence: string): void {
 		if (!this.inputHandler) return;
-		const shouldDetectNativeShiftEnter = sequence === "\r" && isAppleTerminalSession();
+		const shouldDetectNativeShiftEnter =
+			sequence === "\r" && (isAppleTerminalSession() || process.platform === "win32");
 		const input = normalizeNativeShiftEnterInput(
 			sequence,
 			shouldDetectNativeShiftEnter,
@@ -356,6 +364,21 @@ export class ProcessTerminal implements Terminal {
 		if (!this._modifyOtherKeysActive) return;
 		process.stdout.write("\x1b[>4;0m");
 		this._modifyOtherKeysActive = false;
+	}
+
+	/**
+	 * On Windows, add ENABLE_VIRTUAL_TERMINAL_INPUT (0x0200) to the stdin
+	 * console handle so the terminal sends VT sequences for modified keys
+	 * (e.g. \x1b[Z for Shift+Tab). Without this, libuv's ReadConsoleInputW
+	 * discards modifier state and Shift+Tab arrives as plain \t.
+	 */
+	private enableWindowsVTInput(): void {
+		if (process.platform !== "win32") return;
+		try {
+			getNativePlatformHelper()?.enableVirtualTerminalInput?.();
+		} catch {
+			// Native helper not available — Shift+Tab won't be distinguishable from Tab.
+		}
 	}
 
 	async drainInput(maxMs = 1000, idleMs = 50): Promise<void> {
