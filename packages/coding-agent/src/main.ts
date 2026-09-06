@@ -53,7 +53,7 @@ import { AuthStorage, ReadOnlyAuthStorage } from "./core/auth-storage.ts";
 import { exportFromFile } from "./core/export-html/index.ts";
 import type { InlineExtension } from "./core/extensions/types.ts";
 import { applyHttpProxySettings, configureHttpDispatcher } from "./core/http-dispatcher.ts";
-import { applyAppLocale, resolveAppLocale } from "./core/i18n/index.ts";
+import { applyAppLocale, readSystemLocale, resolveAppLocale } from "./core/i18n/index.ts";
 import { resolveCliModel, resolveModelScope, type ScopedModel } from "./core/model-resolver.ts";
 import { ModelRuntime } from "./core/model-runtime.ts";
 import { restoreStdout, takeOverStdout } from "./core/output-guard.ts";
@@ -566,14 +566,6 @@ async function promptForMissingSessionCwd(
 
 export interface MainOptions {
 	extensionFactories?: InlineExtension[];
-}
-
-function readSystemLocale(): string | undefined {
-	try {
-		return Intl.DateTimeFormat().resolvedOptions().locale;
-	} catch {
-		return undefined;
-	}
 }
 
 function applyResolvedLocale(cliLang?: string, settingsLanguage?: string): void {

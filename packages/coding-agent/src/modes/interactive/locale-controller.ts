@@ -4,17 +4,10 @@ import {
 	getLocale,
 	type LanguageSetting,
 	type LocaleId,
+	readSystemLocale,
 	resolveAppLocale,
 } from "../../core/i18n/index.ts";
 import type { SettingsManager } from "../../core/settings-manager.ts";
-
-function readSystemLocale(): string | undefined {
-	try {
-		return Intl.DateTimeFormat().resolvedOptions().locale;
-	} catch {
-		return undefined;
-	}
-}
 
 function isLocaleId(value: string): value is LocaleId {
 	return value === "en" || value === "zh-CN";

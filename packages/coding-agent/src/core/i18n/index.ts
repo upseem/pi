@@ -15,6 +15,7 @@
 export { applyAppLocale, type LanguageSetting } from "./apply.ts";
 export type { MessageKey } from "./locales/en.ts";
 export { normalizeLocaleTag, type ResolveLocaleInputs, resolveAppLocale, resolveLocale } from "./resolve.ts";
+export { readSystemLocale } from "./system-locale.ts";
 export {
 	createTranslator,
 	getLocale,
