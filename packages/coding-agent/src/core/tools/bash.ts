@@ -93,9 +93,10 @@ export function createLocalShellOperations(shellName: string, resolveShellConfig
 			const commandFromStdin = shellConfig.commandTransport === "stdin";
 			const child = spawn(shellConfig.shell, commandFromStdin ? shellConfig.args : [...shellConfig.args, command], {
 				cwd,
-				detached: true,
+				detached: process.platform !== "win32",
 				env: env ?? getShellEnv(),
 				stdio: [commandFromStdin ? "pipe" : "ignore", "pipe", "pipe"],
+				windowsHide: true,
 			});
 			if (commandFromStdin) {
 				child.stdin?.on("error", () => {});

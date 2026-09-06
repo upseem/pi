@@ -439,6 +439,7 @@ ${chalk.bold("环境变量:")}
 ${chalk.bold("内置工具名:")}
   read       - 读取文件内容
   bash       - 执行 bash 命令
+  powershell - 在 Windows 上执行 PowerShell 命令
   edit       - 用查找/替换编辑文件
   write      - 写入文件（创建/覆盖）
   grep       - 搜索文件内容（只读，默认关闭）

@@ -38,6 +38,10 @@ import { spawnProcess, spawnProcessSync, waitForChildProcess } from "./utils/chi
 import { canonicalizePath, getCwdRelativePath } from "./utils/paths.ts";
 import { getPiUserAgent } from "./utils/pi-user-agent.ts";
 import { formatVersionCheckError, getLatestPiRelease, isNewerPackageVersion } from "./utils/version-check.ts";
+import {
+	cleanupWindowsSelfUpdateQuarantine,
+	quarantineWindowsNativeDependencies,
+} from "./utils/windows-self-update.ts";
 
 export type PackageCommand = "install" | "remove" | "update" | "list";
 
@@ -99,7 +103,12 @@ async function runManagedNpmCi(stageDir: string): Promise<void> {
 }
 
 function verifyManagedRelease(releaseDir: string, expectedVersion: string): void {
-	const binPath = join(releaseDir, "node_modules", ".bin", APP_NAME);
+	const binPath = join(
+		releaseDir,
+		"node_modules",
+		".bin",
+		process.platform === "win32" ? `${APP_NAME}.cmd` : APP_NAME,
+	);
 	const result = spawnProcessSync(binPath, ["--version"], {
 		encoding: "utf8",
 		stdio: ["ignore", "pipe", "pipe"],
@@ -702,6 +711,16 @@ async function runSelfUpdate(command: SelfUpdateCommand): Promise<void> {
 	}
 }
 
+function prepareWindowsNpmSelfUpdate(): void {
+	if (process.platform !== "win32") {
+		return;
+	}
+
+	const packageDir = getPackageDir();
+	cleanupWindowsSelfUpdateQuarantine(packageDir);
+	quarantineWindowsNativeDependencies(packageDir);
+}
+
 export interface PackageCommandRuntimeOptions {
 	extensionFactories?: InlineExtension[];
 }
@@ -1033,6 +1052,14 @@ export async function handlePackageCommand(
 					}
 
 					const installMethod = detectInstallMethod();
+					if (process.platform === "win32" && installMethod !== "npm" && installMethod !== "pnpm") {
+						console.error(
+							chalk.red(`${APP_NAME} self-update on Windows is only supported for npm and pnpm installs.`),
+						);
+						console.error(chalk.dim(`Detected install method: ${installMethod}. Update ${APP_NAME} manually.`));
+						process.exitCode = 1;
+						return true;
+					}
 					const selfUpdateTarget = {
 						packageName: selfUpdatePlan.packageName,
 						installSpec: selfUpdatePlan.installSpec,
@@ -1047,6 +1074,9 @@ export async function handlePackageCommand(
 						printSelfUpdateNote(selfUpdatePlan.note);
 					}
 					try {
+						if (installMethod === "npm") {
+							prepareWindowsNpmSelfUpdate();
+						}
 						await runSelfUpdate(selfUpdateCommand);
 					} catch (error: unknown) {
 						const message = error instanceof Error ? error.message : "Unknown package command error";

@@ -970,7 +970,8 @@ export class InteractiveMode {
 		}
 		this.ui.requestRender();
 
-		// Resolve fd and rg after mounting the TUI (PATH or local bin dir, no download).
+		// Ensure fd and rg are available after mounting the TUI (downloads if missing, adds to PATH via getBinDir)
+		// so slow downloads do not make startup appear frozen.
 		// Both are needed: fd for autocomplete, rg for grep tool and bash commands.
 		const [fdPath] = await Promise.all([
 			ensureTool("fd", (status) => this.showManagedToolStatus(status)),
@@ -1056,7 +1057,13 @@ export class InteractiveMode {
 					this.showPackageUpdateNotification(updates);
 				}
 			})
-			.finally(() => {});
+			.finally(() => {
+				// On Windows, npm can overwrite the shared console title while checking
+				// extension package versions. Restore Pi's title after the startup check.
+				if (process.platform === "win32" && this.isInitialized) {
+					this.updateTerminalTitle();
+				}
+			});
 
 		// Check tmux keyboard setup asynchronously
 		this.checkTmuxKeyboardSetup().then((warning) => {
@@ -4034,7 +4041,10 @@ export class InteractiveMode {
 	private registerSignalHandlers(): void {
 		this.unregisterSignalHandlers();
 
-		const signals: NodeJS.Signals[] = ["SIGTERM", "SIGHUP"];
+		const signals: NodeJS.Signals[] = ["SIGTERM"];
+		if (process.platform !== "win32") {
+			signals.push("SIGHUP");
+		}
 
 		for (const signal of signals) {
 			const handler = () => {
@@ -4076,6 +4086,11 @@ export class InteractiveMode {
 	}
 
 	private handleCtrlZ(): void {
+		if (process.platform === "win32") {
+			this.showStatus("Suspend to background is not supported on Windows");
+			return;
+		}
+
 		// Keep the event loop alive while suspended. Without this, stopping the TUI
 		// can leave Node with no ref'ed handles, causing the process to exit on fg
 		// before the SIGCONT handler gets a chance to restore the terminal.
@@ -6351,7 +6366,7 @@ export class InteractiveMode {
 | Key | Action |
 |-----|--------|
 | \`${submit}\` | Send message |
-| \`${newLine}\` | New line |
+| \`${newLine}\` | New line${process.platform === "win32" ? " (Ctrl+Enter on Windows Terminal)" : ""} |
 | \`${deleteWordBackward}\` | Delete word backwards |
 | \`${deleteWordForward}\` | Delete word forwards |
 | \`${deleteToLineStart}\` | Delete to start of line |

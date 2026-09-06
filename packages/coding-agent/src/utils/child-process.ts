@@ -11,6 +11,7 @@ import {
 	type StdioPipe,
 } from "node:child_process";
 import type { Readable } from "node:stream";
+import crossSpawn from "cross-spawn";
 
 const EXIT_STDIO_GRACE_MS = 100;
 
@@ -21,7 +22,7 @@ export function spawnProcess(
 ): ChildProcessByStdio<null, Readable, Readable>;
 export function spawnProcess(command: string, args: string[], options: SpawnOptions): ChildProcess;
 export function spawnProcess(command: string, args: string[], options: SpawnOptions): ChildProcess {
-	return nodeSpawn(command, args, options);
+	return process.platform === "win32" ? crossSpawn(command, args, options) : nodeSpawn(command, args, options);
 }
 
 export function spawnProcessSync(
@@ -29,7 +30,9 @@ export function spawnProcessSync(
 	args: string[],
 	options: SpawnSyncOptionsWithStringEncoding,
 ): SpawnSyncReturns<string> {
-	return nodeSpawnSync(command, args, options);
+	return process.platform === "win32"
+		? crossSpawn.sync(command, args, options)
+		: nodeSpawnSync(command, args, options);
 }
 
 /**
@@ -40,8 +43,8 @@ export function spawnProcessSync(
  * from `exit`, or output still being written past that deadline is silently lost
  * (earendil-works/pi#5303). Instead, after `exit` we wait for the pipes to fall idle:
  * the grace timer is re-armed on every chunk, so an actively writing descendant keeps
- * us reading, while a quiet inherited handle that never lets `close` fire still
- * releases us after the grace elapses.
+ * us reading, while a quiet inherited handle (e.g. a Windows daemonized descendant
+ * that never lets `close` fire) still releases us after the grace elapses.
  */
 export function waitForChildProcess(child: ChildProcess): Promise<number | null> {
 	return new Promise((resolve, reject) => {
