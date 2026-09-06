@@ -1,55 +1,55 @@
 {
   "navigation": [
     {
-      "title": "从这里开始",
+      "title": "Start here",
       "items": [
         {
-          "title": "概览",
+          "title": "Overview",
           "path": "index.md"
         },
         {
-          "title": "快速开始",
+          "title": "Quickstart",
           "path": "quickstart.md"
         },
         {
-          "title": "使用 Pi",
+          "title": "Using Pi",
           "path": "usage.md"
         },
         {
-          "title": "提供商",
+          "title": "Providers",
           "path": "providers.md"
         },
         {
-          "title": "安全",
+          "title": "Security",
           "path": "security.md"
         },
         {
-          "title": "容器化",
+          "title": "Containerization",
           "path": "containerization.md"
         },
         {
-          "title": "设置",
+          "title": "Settings",
           "path": "settings.md"
         },
         {
-          "title": "快捷键",
+          "title": "Keybindings",
           "path": "keybindings.md"
         },
         {
-          "title": "会话",
+          "title": "Sessions",
           "path": "sessions.md"
         },
         {
-          "title": "压缩",
+          "title": "Compaction",
           "path": "compaction.md"
         }
       ]
     },
     {
-      "title": "自定义",
+      "title": "Customization",
       "items": [
         {
-          "title": "扩展",
+          "title": "Extensions",
           "path": "extensions.md"
         },
         {
@@ -57,62 +57,66 @@
           "path": "skills.md"
         },
         {
-          "title": "提示模板",
+          "title": "Prompt Templates",
           "path": "prompt-templates.md"
         },
         {
-          "title": "主题",
+          "title": "Themes",
           "path": "themes.md"
         },
         {
-          "title": "Pi 包",
+          "title": "Pi Packages",
           "path": "packages.md"
         },
         {
-          "title": "自定义模型",
+          "title": "Custom Models",
           "path": "models.md"
         },
         {
-          "title": "自定义提供商",
+          "title": "Custom Providers",
           "path": "custom-provider.md"
         }
       ]
     },
     {
-      "title": "参考",
+      "title": "Reference",
       "items": [
         {
-          "title": "会话格式",
+          "title": "Session Format",
           "path": "session-format.md"
         }
       ]
     },
     {
-      "title": "编程式使用",
+      "title": "Programmatic Usage",
       "items": [
         {
           "title": "SDK",
           "path": "sdk.md"
         },
         {
-          "title": "RPC 模式",
+          "title": "RPC Mode",
           "path": "rpc.md"
         },
         {
-          "title": "JSON 事件流模式",
+          "title": "JSON Event Stream Mode",
           "path": "json.md"
         },
         {
-          "title": "TUI 组件",
+          "title": "TUI Components",
           "path": "tui.md"
         }
       ]
     },
     {
-      "title": "平台设置",
+      "title": "Platform Setup",
       "items": [
         {
-          "title": "Android 上的 Termux",
+          "title": "Windows",
+          "path": "windows.md"
+        },
+        {
+          "title": "Termux on Android",
           "path": "termux.md"
         },
         {
@@ -120,20 +124,20 @@
           "path": "tmux.md"
         },
         {
-          "title": "终端设置",
+          "title": "Terminal Setup",
           "path": "terminal-setup.md"
         },
         {
-          "title": "Shell 别名",
+          "title": "Shell Aliases",
           "path": "shell-aliases.md"
         }
       ]
     },
     {
-      "title": "开发",
+      "title": "Development",
       "items": [
         {
-          "title": "开发",
+          "title": "Development",
           "path": "development.md"
         }
       ]

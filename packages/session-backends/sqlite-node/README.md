@@ -1,6 +1,6 @@
 # @earendil-works/pi-session-backend-sqlite-node
 
-面向 `@earendil-works/pi-agent-core` 的 Node `node:sqlite` Session 后端。
+Node `node:sqlite` Session backend for `@earendil-works/pi-agent-core`.
 
 ```ts
 import { BACKGROUND_CONTEXT } from "@earendil-works/pi-agent-core";
@@ -24,10 +24,10 @@ await session.close(BACKGROUND_CONTEXT);
 await repository.close(BACKGROUND_CONTEXT);
 ```
 
-默认布局在 `directory` 下为每个 Session 创建一个文件。只含 ASCII 字母、数字、`_` 和 `-` 的 ID 使用 `{sessionId}.sqlite`；其他 ID 则把 UTF-16 code unit 编成 base64url，并加 `~` 前缀。持久 ID 保持不变，返回或列出的 metadata 包含规范物理路径。传入 `databasePath` 可把多个 Session 放进同一个受支持的共享容器；需要时会创建其父目录。
+The default layout creates one file per Session under `directory`. IDs containing only ASCII letters, digits, `_`, and `-` retain `{sessionId}.sqlite`; every other ID uses a `~`-prefixed base64url encoding of its UTF-16 code units. The durable ID is unchanged, and returned/listed metadata contains the canonical physical path. Pass `databasePath` to place multiple Sessions in one supported shared container; its parent is created when needed.
 
-database factory 会区分有意创建、不创建的读写打开，以及不创建的只读打开。Session `open()` 与删除会拒绝配置仓库之外的 metadata，且绝不会创建缺失的数据库。列表操作只读且尽力而为。fork 有意允许外部来源的 metadata 路径：它只读访问指定的现有容器，绝不会替换为同 ID 的活跃本地 Session。
+The database factory distinguishes intentional creation, no-create read-write open, and no-create read-only open. Session `open()` and deletion reject metadata outside the configured repository and never create a missing database. Listing is read-only and best-effort. Forking deliberately permits a foreign source metadata path: it reads that exact existing container read-only and never substitutes an active local Session with the same ID.
 
-每个 Session 只有一个可写 owner 的保证来自 host 生命周期，而不是此后端。不支持在另一进程直接打开同一 Session 进行写入。仓库会拒绝同一 ID 上相互重叠的本地 create/open/fork/delete 所有权，但没有实现跨进程 lease、lock、fence、heartbeat 或 takeover。host 必须先关闭 worker，才能删除。
+The host lifecycle, not this backend, guarantees one writable owner per Session. Directly opening the same Session for writes in another process is unsupported. The repository rejects overlapping local create/open/fork/delete ownership for one ID, but implements no cross-process lease, lock, fence, heartbeat, or takeover. The host must close a worker before deletion.
 
-对同一仓库内已打开来源执行 fork 时，其快照会排入该来源的 commit 队列。其他任何来源（包括由活跃 Session worker 保持打开的来源）都会使用独立只读连接和一个 deferred WAL transaction；该快照保持打开时，worker 后续的 commit 仍可完成。共享容器删除只移除所选 Session 的行。仓库关闭会等待每个已打开 Session 的清理尝试，再报告错误。本包不导出搜索服务或 FTS 索引；搜索由独立的 S3 projection 提供。
+A fork of a source open in the same repository queues its snapshot on that source's commit queue. Any other source, including one held open by a live Session worker, uses an independent read-only connection and one deferred WAL transaction; later worker commits may complete while that snapshot remains open. Shared-container deletion removes only the selected Session's rows. Repository close waits for every open Session cleanup attempt before reporting errors. The package does not export a search service or FTS index; search is the separate S3 projection.

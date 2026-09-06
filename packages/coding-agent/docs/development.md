@@ -1,10 +1,8 @@
-<a id="development"></a>
-# 开发
+# Development
 
-更多指南见 [AGENTS.md](https://github.com/earendil-works/pi-mono/blob/main/AGENTS.md)。
+See [AGENTS.md](https://github.com/earendil-works/pi-mono/blob/main/AGENTS.md) for additional guidelines.
 
-<a id="setup"></a>
-## 设置
+## Setup
 
 ```bash
 git clone https://github.com/earendil-works/pi-mono
@@ -13,18 +11,30 @@ npm install
 npm run build
 ```
 
-从源码运行：
+Run from source:
 
 ```bash
 /path/to/pi-mono/pi-test.sh
 ```
 
-该脚本可以从任意目录运行。Pi 会保持调用方的当前工作目录。
+The script can be run from any directory. Pi keeps the caller's current working directory.
 
-<a id="forking--rebranding"></a>
-## Fork / 换品牌
+### Experimental remote harness
 
-通过 `package.json` 配置：
+The remote harness server/client integration is development-only. Run it from the repository with:
+
+```bash
+PI_EXPERIMENTAL=1 ./pi-test.sh server
+PI_EXPERIMENTAL=1 ./pi-test.sh client
+```
+
+`PI_SERVER_DIR` overrides the server profile and socket directory (default: `~/.pi/server`). `PI_SERVER_ID` selects the logical server ID when `--server-id` is omitted.
+
+The `client` and `experimental/plugin` package subpaths resolve only under the `source` condition in a checkout. Their implementations and the server/client commands are excluded from npm packages and standalone binaries. `pi-client`, `pi-protocol`, and `pi-server` are development dependencies of coding-agent, not runtime dependencies. The local SDK and stdio RPC API are unchanged.
+
+## Forking / Rebranding
+
+Configure via `package.json`:
 
 ```json
 {
@@ -35,44 +45,46 @@ npm run build
 }
 ```
 
-为你的 fork 改 `name`、`configDir` 和 `bin` 字段。这会影响 CLI 横幅、配置路径和环境变量名。
+Change `name`, `configDir`, and `bin` field for your fork. Affects CLI banner, config paths, and environment variable names.
 
-<a id="path-resolution"></a>
-## 路径解析
+## Path Resolution
 
-三种执行模式：npm 安装、独立二进制、从源码用 tsx。
+Three execution modes: npm install, standalone binary, tsx from source.
 
-**包资源始终使用 `src/config.ts`**：
+**Always use `src/config.ts`** for package assets:
 
 ```typescript
 import { getPackageDir, getThemeDir } from "./config.js";
 ```
 
-不要直接用 `__dirname` 取包资源。
+Never use `__dirname` directly for package assets.
 
-<a id="debug-command"></a>
-## 调试命令
+## Debug Command
 
-`/debug`（隐藏）写入 `~/.pi/agent/pi-debug.log`：
-- 带 ANSI 码的已渲染 TUI 行
-- 最近发给 LLM 的消息
+`/debug` (hidden) writes to `~/.pi/agent/pi-debug.log`:
+- Rendered TUI lines with ANSI codes
+- Last messages sent to the LLM
 
-<a id="testing"></a>
-## 测试
+## Testing
 
 ```bash
-./test.sh                         # 运行非 LLM 测试（不需要 API key）
-npm test                          # 运行全部测试
-npm test -- test/specific.test.ts # 运行指定测试
+./test.sh                         # Run non-LLM tests (no API keys needed)
+npm test                          # Run all tests
+npm test -- test/specific.test.ts # Run specific test
 ```
 
-<a id="project-structure"></a>
-## 项目结构
+### Published package smoke test
+
+After building, run `npm run check:package-install`. It packs the public packages and installs only coding-agent as a direct dependency in a temporary directory outside the repository. Local tarball overrides select declared transitive dependencies without installing development-only packages. The check verifies SDK imports and CLI startup without credentials or model requests.
+
+`npm run check` also checks runtime dependency declarations and rejects excluded development sources pulled into a package's build through imports.
+
+## Project Structure
 
 ```
 packages/
-  ai/           # LLM 提供商抽象
-  agent/        # 代理循环与消息类型
-  tui/          # 终端 UI 组件
-  coding-agent/ # CLI 与交互模式
+  ai/           # LLM provider abstraction
+  agent/        # Agent loop and message types  
+  tui/          # Terminal UI components
+  coding-agent/ # CLI and interactive mode
 ```

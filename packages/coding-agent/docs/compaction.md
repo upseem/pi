@@ -1,55 +1,50 @@
-<a id="compaction--branch-summarization"></a>
-# 压缩与分支摘要
+# Compaction & Branch Summarization
 
-LLM 的上下文窗口有限。当对话过长时，Pi 使用压缩来摘要较旧内容，同时保留近期工作。本页同时介绍自动压缩和分支摘要。
+LLMs have limited context windows. When conversations grow too long, Pi uses compaction to summarize older content while preserving recent work. This page covers both auto-compaction and branch summarization.
 
-**源文件**（[pi-mono](https://github.com/earendil-works/pi-mono)）：
-- [`packages/coding-agent/src/core/compaction/compaction.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/compaction.ts) - 自动压缩逻辑
-- [`packages/coding-agent/src/core/compaction/branch-summarization.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts) - 分支摘要
-- [`packages/coding-agent/src/core/compaction/utils.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/utils.ts) - 共享工具（文件跟踪、序列化）
-- [`packages/coding-agent/src/core/session-manager.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts) - 条目类型（`CompactionEntry`、`BranchSummaryEntry`）
-- [`packages/coding-agent/src/core/extensions/types.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/extensions/types.ts) - 扩展事件类型
+**Source files** ([pi-mono](https://github.com/earendil-works/pi-mono)):
+- [`packages/coding-agent/src/core/compaction/compaction.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/compaction.ts) - Auto-compaction logic
+- [`packages/coding-agent/src/core/compaction/branch-summarization.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts) - Branch summarization
+- [`packages/coding-agent/src/core/compaction/utils.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/utils.ts) - Shared utilities (file tracking, serialization)
+- [`packages/coding-agent/src/core/session-manager.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts) - Entry types (`CompactionEntry`, `BranchSummaryEntry`)
+- [`packages/coding-agent/src/core/extensions/types.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/extensions/types.ts) - Extension event types
 
-项目中的 TypeScript 定义可查看 `node_modules/@earendil-works/pi-coding-agent/dist/`。
+For TypeScript definitions in your project, inspect `node_modules/@earendil-works/pi-coding-agent/dist/`.
 
-<a id="overview"></a>
-## 概览
+## Overview
 
-Pi 有两种摘要机制：
+Pi has two summarization mechanisms:
 
-| 机制 | 触发条件 | 用途 |
+| Mechanism | Trigger | Purpose |
 |-----------|---------|---------|
-| 压缩 | 上下文超过阈值，或 `/compact` | 摘要旧消息以释放上下文 |
-| 分支摘要 | `/tree` 导航 | 切换分支时保留上下文 |
+| Compaction | Context exceeds threshold, or `/compact` | Summarize old messages to free up context |
+| Branch summarization | `/tree` navigation | Preserve context when switching branches |
 
-两者使用相同的结构化摘要格式，并累计跟踪文件操作。压缩和分支摘要请求使用新的 routing session ID；在 provider 支持时会禁用 prompt-cache 写入，因为这些一次性 prompt 不太可能被复用。
+Both use the same structured summary format and track file operations cumulatively. Compaction and branch-summary requests use fresh routing session IDs and, where supported by the provider, disable prompt-cache writes because these one-off prompts are unlikely to be reused.
 
-<a id="compaction"></a>
-## 压缩
+## Compaction
 
-<a id="when-it-triggers"></a>
-### 何时触发
+### When It Triggers
 
-自动压缩在以下条件触发：
+Auto-compaction triggers when:
 
 ```
 contextTokens > contextWindow - reserveTokens
 ```
 
-默认情况下，`reserveTokens` 为 16384 token（可在 `~/.pi/agent/settings.json` 或 `<project-dir>/.pi/settings.json` 中配置）。这为 LLM 的回复留出空间。
+By default, `reserveTokens` is 16384 tokens (configurable in `~/.pi/agent/settings.json` or `<project-dir>/.pi/settings.json`). This leaves room for the LLM's response.
 
-在多轮 agent 运行期间，Pi 会在工具完成且其结果追加后、开始下一次助手回复前检查此阈值。如果超过阈值，Pi 会在同一次 agent 运行中执行压缩，然后使用摘要和保留的消息继续运行。当已完成的工具批次会终止本次运行，且没有排队消息需要继续回复时，Pi 会跳过这次轮次间检查。Pi 还会在收到新的用户 prompt 前以及底层 agent 运行结束后检查此阈值。
+During a multi-turn agent run, Pi checks this threshold after tools finish and their results are appended, before starting the next assistant response. If the threshold is crossed, Pi compacts inside the same agent run and resumes with the summary and retained messages. It skips this between-turn check when the completed tool batch terminates the run and no queued message requires another response. Pi also checks the threshold before a new user prompt and after a low-level agent run ends.
 
-也可以用 `/compact [instructions]` 手动触发，可选 instructions 用于聚焦摘要。
+You can also trigger manually with `/compact [instructions]`, where optional instructions focus the summary.
 
-<a id="how-it-works"></a>
-### 工作方式
+### How It Works
 
-1. **查找切分点**：从最新消息向前遍历，累加 token 估算，直到达到 `keepRecentTokens`（默认 20k，可在 `~/.pi/agent/settings.json` 或 `<project-dir>/.pi/settings.json` 中配置）
-2. **提取消息**：收集从上一个保留边界（或会话起点）到切分点的消息
-3. **生成摘要**：调用 LLM 按结构化格式摘要；若存在上一份摘要，则作为迭代上下文传入
-4. **追加条目**：保存带有摘要和 `firstKeptEntryId` 的 `CompactionEntry`
-5. **重建上下文**：会话为下一次请求重建上下文，使用摘要 + 从 `firstKeptEntryId` 起的消息
+1. **Find cut point**: Walk backwards from newest message, accumulating token estimates until `keepRecentTokens` (default 20k, configurable in `~/.pi/agent/settings.json` or `<project-dir>/.pi/settings.json`) is reached
+2. **Extract messages**: Collect messages from the previous kept boundary (or session start) up to the cut point
+3. **Generate summary**: Call LLM to summarize with structured format, passing the previous summary as iterative context when present
+4. **Append entry**: Save `CompactionEntry` with summary and `firstKeptEntryId`
+5. **Rebuilds context**: Session rebuilds the context for the next request, using summary + messages from `firstKeptEntryId` onwards
 
 ```
 Before compaction:
@@ -83,14 +78,13 @@ What the LLM sees:
     prompt   from cmp          messages from firstKeptEntryId
 ```
 
-重复压缩时，被摘要的区间从上一次压缩的保留边界（`firstKeptEntryId`）开始，而不是从压缩条目本身开始；若路径中找不到该保留条目，则回退到上一压缩之后的条目。这样会把上次压缩后幸存的消息也纳入下一次摘要。Pi 还会在写入新的 `CompactionEntry` 之前，根据重建后的会话上下文重新计算 `tokensBefore`，使 token 数反映实际被替换的压缩前上下文。
+On repeated compactions, the summarized span starts at the previous compaction's kept boundary (`firstKeptEntryId`), not at the compaction entry itself, falling back to the entry after the previous compaction if that kept entry cannot be found in the path. This preserves messages that survived the earlier compaction by including them in the next summarization pass as well. Pi also recalculates `tokensBefore` from the rebuilt session context before writing the new `CompactionEntry`, so the token count reflects the actual pre-compaction context being replaced.
 
-<a id="split-turns"></a>
-### 拆分轮次
+### Split Turns
 
-一轮（turn）从用户消息开始，包含直到下一条用户消息之前的全部助手回复和工具调用。通常，压缩在轮次边界处切分。
+A "turn" starts with a user message and includes all assistant responses and tool calls until the next user message. Normally, compaction cuts at turn boundaries.
 
-当单轮超过 `keepRecentTokens` 时，切分点会落在轮次中间的助手消息上。这就是“拆分轮次”：
+When a single turn exceeds `keepRecentTokens`, the cut point lands mid-turn at an assistant message. This is a "split turn":
 
 ```
 Split turn (one huge turn exceeds budget):
@@ -110,25 +104,23 @@ Split turn (one huge turn exceeds budget):
   turnPrefixMessages = [usr, ass, tool, ass, tool, tool]
 ```
 
-对于拆分轮次，Pi 生成两份摘要并合并：
-1. **历史摘要**：此前的上下文（如有）
-2. **轮次前缀摘要**：拆分轮次的前半部分
+For split turns, Pi generates two summaries and merges them:
+1. **History summary**: Previous context (if any)
+2. **Turn prefix summary**: The early part of the split turn
 
-<a id="cut-point-rules"></a>
-### 切分点规则
+### Cut Point Rules
 
-有效切分点为：
-- 用户消息
-- 助手消息
-- BashExecution 消息
-- 自定义消息（custom_message、branch_summary）
+Valid cut points are:
+- User messages
+- Assistant messages
+- BashExecution messages
+- Custom messages (custom_message, branch_summary)
 
-绝不在工具结果处切分（它们必须与对应的工具调用放在一起）。
+Never cut at tool results (they must stay with their tool call).
 
-<a id="compactionentry-structure"></a>
-### CompactionEntry 结构
+### CompactionEntry Structure
 
-定义于 [`session-manager.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts)：
+Defined in [`session-manager.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts):
 
 ```typescript
 interface CompactionEntry<T = unknown> {
@@ -139,38 +131,35 @@ interface CompactionEntry<T = unknown> {
   summary: string;
   firstKeptEntryId: string;
   tokensBefore: number;
-  usage?: Usage;       // 生成摘要时的 LLM usage
-  fromHook?: boolean;  // 为 true 表示由扩展提供（遗留字段名）
-  details?: T;         // 实现相关的数据
+  usage?: Usage;       // LLM usage that generated the summary
+  fromHook?: boolean;  // true if provided by extension (legacy field name)
+  details?: T;         // implementation-specific data
 }
 
-// 默认压缩在 details 中使用此结构（来自 compaction.ts）：
+// Default compaction uses this for details (from compaction.ts):
 interface CompactionDetails {
   readFiles: string[];
   modifiedFiles: string[];
 }
 ```
 
-扩展可在 `details` 中存储任意可 JSON 序列化的数据。默认压缩跟踪文件操作，但自定义扩展实现可以使用自己的结构。生成的摘要和扩展提供的摘要在可用时会存储其 LLM `usage`，以便会话总计包含摘要工作。
+Extensions can store any JSON-serializable data in `details`. The default compaction tracks file operations, but custom extension implementations can use their own structure. Generated and extension-provided summaries store their LLM `usage` when available so session totals include summarization work.
 
-实现见 [`prepareCompaction()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/compaction.ts) 和 [`compact()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/compaction.ts)。若要直接以编程方式摘要，`generateSummary()` 返回摘要文本，`generateSummaryWithUsage()` 返回 `{ text, usage }`。
+See [`prepareCompaction()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/compaction.ts) and [`compact()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/compaction.ts) for the implementation. For direct programmatic summarization, `generateSummary()` returns the summary text and `generateSummaryWithUsage()` returns `{ text, usage }`.
 
-<a id="branch-summarization"></a>
-## 分支摘要
+## Branch Summarization
 
-<a id="when-it-triggers-1"></a>
-### 何时触发
+### When It Triggers
 
-使用 `/tree` 导航到另一分支时，Pi 会询问是否摘要即将离开的工作。这会把离开分支的上下文注入新分支。
+When you use `/tree` to navigate to a different branch, Pi offers to summarize the work you're leaving. This injects context from the left branch into the new branch.
 
-<a id="how-it-works-1"></a>
-### 工作方式
+### How It Works
 
-1. **查找共同祖先**：旧位置与新位置共享的最深节点
-2. **收集条目**：从旧叶子回溯到共同祖先
-3. **按预算准备**：按 token 预算纳入消息（从新到旧）
-4. **生成摘要**：按结构化格式调用 LLM
-5. **追加条目**：在导航点保存 `BranchSummaryEntry`
+1. **Find common ancestor**: Deepest node shared by old and new positions
+2. **Collect entries**: Walk from old leaf back to common ancestor
+3. **Prepare with budget**: Include messages up to token budget (newest first)
+4. **Generate summary**: Call LLM with structured format
+5. **Append entry**: Save `BranchSummaryEntry` at navigation point
 
 ```
 Tree before navigation:
@@ -189,19 +178,17 @@ After navigation with summary:
          └─ E ─ F ─ [summary of B,C,D] (new leaf)
 ```
 
-<a id="cumulative-file-tracking"></a>
-### 累计文件跟踪
+### Cumulative File Tracking
 
-压缩和分支摘要都累计跟踪文件。生成摘要时，pi 从以下来源提取文件操作：
-- 被摘要消息中的工具调用
-- 上一份压缩或分支摘要的 `details`（如有）
+Both compaction and branch summarization track files cumulatively. When generating a summary, pi extracts file operations from:
+- Tool calls in the messages being summarized
+- Previous compaction or branch summary `details` (if any)
 
-因此文件跟踪会跨多次压缩或嵌套分支摘要累计，保留已读和已修改文件的完整历史。
+This means file tracking accumulates across multiple compactions or nested branch summaries, preserving the full history of read and modified files.
 
-<a id="branchsummaryentry-structure"></a>
-### BranchSummaryEntry 结构
+### BranchSummaryEntry Structure
 
-定义于 [`session-manager.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts)：
+Defined in [`session-manager.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/session-manager.ts):
 
 ```typescript
 interface BranchSummaryEntry<T = unknown> {
@@ -210,27 +197,26 @@ interface BranchSummaryEntry<T = unknown> {
   parentId: string;
   timestamp: number;
   summary: string;
-  fromId: string;      // 导航出发的条目
-  usage?: Usage;       // 生成摘要时的 LLM usage
-  fromHook?: boolean;  // 为 true 表示由扩展提供（遗留字段名）
-  details?: T;         // 实现相关的数据
+  fromId: string;      // Entry we navigated from
+  usage?: Usage;       // LLM usage that generated the summary
+  fromHook?: boolean;  // true if provided by extension (legacy field name)
+  details?: T;         // implementation-specific data
 }
 
-// 默认分支摘要在 details 中使用此结构（来自 branch-summarization.ts）：
+// Default branch summarization uses this for details (from branch-summarization.ts):
 interface BranchSummaryDetails {
   readFiles: string[];
   modifiedFiles: string[];
 }
 ```
 
-与压缩相同，扩展可在 `details` 中存储自定义数据。
+Same as compaction, extensions can store custom data in `details`.
 
-实现见 [`collectEntriesForBranchSummary()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts)、[`prepareBranchEntries()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts) 和 [`generateBranchSummary()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts)。
+See [`collectEntriesForBranchSummary()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts), [`prepareBranchEntries()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts), and [`generateBranchSummary()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/branch-summarization.ts) for the implementation.
 
-<a id="summary-format"></a>
-## 摘要格式
+## Summary Format
 
-压缩和分支摘要使用相同的结构化格式：
+Both compaction and branch summarization use the same structured format:
 
 ```markdown
 ## Goal
@@ -268,10 +254,9 @@ path/to/changed.ts
 </modified-files>
 ```
 
-<a id="message-serialization"></a>
-### 消息序列化
+### Message Serialization
 
-摘要前，消息通过 [`serializeConversation()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/utils.ts) 序列化为文本：
+Before summarization, messages are serialized to text via [`serializeConversation()`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/compaction/utils.ts):
 
 ```
 [User]: What they said
@@ -281,57 +266,54 @@ path/to/changed.ts
 [Tool result]: Output from tool
 ```
 
-这可以防止模型将其当作要继续的对话。
+This prevents the model from treating it as a conversation to continue.
 
-序列化时，工具结果截断为 2000 个字符。超出部分替换为标明截断字符数的标记。这使摘要请求保持在合理的 token 预算内，因为工具结果（尤其来自 `read` 和 `bash`）通常是上下文体积的主要来源。
+Tool results are truncated to 2000 characters during serialization. Content beyond that limit is replaced with a marker indicating how many characters were truncated. This keeps summarization requests within reasonable token budgets, since tool results (especially from `read` and `bash`) are typically the largest contributors to context size.
 
-<a id="custom-summarization-via-extensions"></a>
-## 通过扩展自定义摘要
+## Custom Summarization via Extensions
 
-扩展可以拦截并自定义压缩和分支摘要。事件类型定义见 [`extensions/types.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/extensions/types.ts)。
+Extensions can intercept and customize both compaction and branch summarization. See [`extensions/types.ts`](https://github.com/earendil-works/pi-mono/blob/main/packages/coding-agent/src/core/extensions/types.ts) for event type definitions.
 
-<a id="session_before_compact"></a>
 ### session_before_compact
 
-在自动压缩或 `/compact` 之前触发。可以取消或提供自定义摘要。见类型文件中的 `SessionBeforeCompactEvent` 和 `CompactionPreparation`。
+Fired before auto-compaction or `/compact`. Can cancel or provide custom summary. See `SessionBeforeCompactEvent` and `CompactionPreparation` in the types file.
 
 ```typescript
 pi.on("session_before_compact", async (event, ctx) => {
   const { preparation, branchEntries, customInstructions, reason, willRetry, signal } = event;
 
-  // preparation.messagesToSummarize - 待摘要的消息
-  // preparation.turnPrefixMessages - 拆分轮次前缀（若 isSplitTurn）
-  // preparation.previousSummary - 上一份压缩摘要
-  // preparation.fileOps - 提取出的文件操作
-  // preparation.tokensBefore - 压缩前的上下文 token
-  // preparation.firstKeptEntryId - 保留消息的起点
-  // preparation.settings - 压缩设置
+  // preparation.messagesToSummarize - messages to summarize
+  // preparation.turnPrefixMessages - split turn prefix (if isSplitTurn)
+  // preparation.previousSummary - previous compaction summary
+  // preparation.fileOps - extracted file operations
+  // preparation.tokensBefore - context tokens before compaction
+  // preparation.firstKeptEntryId - where kept messages start
+  // preparation.settings - compaction settings
 
-  // branchEntries - 当前分支上的全部条目（用于自定义状态）
-  // reason - "manual" (/compact)、"threshold" 或 "overflow"
-  // willRetry - 压缩后是否重试被中止的轮次（overflow 恢复）
-  // signal - AbortSignal（传给 LLM 调用）
+  // branchEntries - all entries on current branch (for custom state)
+  // reason - "manual" (/compact), "threshold", or "overflow"
+  // willRetry - whether the aborted turn is retried after compaction (overflow recovery)
+  // signal - AbortSignal (pass to LLM calls)
 
-  // 取消：
+  // Cancel:
   return { cancel: true };
 
-  // 自定义摘要：
+  // Custom summary:
   return {
     compaction: {
       summary: "Your summary...",
       firstKeptEntryId: preparation.firstKeptEntryId,
       tokensBefore: preparation.tokensBefore,
-      // usage: summaryResponse.usage, // 可选；计入会话总计
+      // usage: summaryResponse.usage, // Optional; included in session totals
       details: { /* custom data */ },
     }
   };
 });
 ```
 
-<a id="converting-messages-to-text"></a>
-#### 将消息转为文本
+#### Converting Messages to Text
 
-若要用自己的模型生成摘要，使用 `serializeConversation` 将消息转为文本：
+To generate a summary with your own model, convert messages to text using `serializeConversation`:
 
 ```typescript
 import { convertToLlm, serializeConversation } from "@earendil-works/pi-coding-agent";
@@ -339,18 +321,18 @@ import { convertToLlm, serializeConversation } from "@earendil-works/pi-coding-a
 pi.on("session_before_compact", async (event, ctx) => {
   const { preparation } = event;
   
-  // 将 AgentMessage[] 转为 Message[]，再序列化为文本
+  // Convert AgentMessage[] to Message[], then serialize to text
   const conversationText = serializeConversation(
     convertToLlm(preparation.messagesToSummarize)
   );
-  // 返回：
+  // Returns:
   // [User]: message text
   // [Assistant thinking]: thinking content
   // [Assistant]: response text
   // [Assistant tool calls]: read(path="..."); bash(command="...")
   // [Tool result]: output text
 
-  // 再发给你的模型做摘要
+  // Now send to your model for summarization
   const { summary, usage } = await myModel.summarize(conversationText);
   
   return {
@@ -364,48 +346,46 @@ pi.on("session_before_compact", async (event, ctx) => {
 });
 ```
 
-使用不同模型的完整示例见 [custom-compaction.ts](../examples/extensions/custom-compaction.ts)。
+See [custom-compaction.ts](../examples/extensions/custom-compaction.ts) for a complete example using a different model.
 
-<a id="session_compact_failed"></a>
 ### session_compact_failed
 
-在手动或自动压缩失败或中止时触发。适用于需要将 `session_before_compact` 尝试与最终结果配对的遥测扩展。
+Fired when manual or automatic compaction fails or is aborted. This is useful for telemetry extensions that need to pair `session_before_compact` attempts with terminal outcomes.
 
 ```typescript
 pi.on("session_compact_failed", async (event, ctx) => {
   const { reason, errorMessage, aborted, willRetry, fromExtension } = event;
-  // reason - "manual" (/compact)、"threshold" 或 "overflow"
-  // errorMessage - 非中止失败时存在
-  // aborted - 取消/中止的压缩为 true
-  // willRetry - 压缩后是否本应重试被中止的轮次
-  // fromExtension - 当时是否在使用扩展提供的压缩内容
+  // reason - "manual" (/compact), "threshold", or "overflow"
+  // errorMessage - present for non-abort failures
+  // aborted - true for cancelled/aborted compactions
+  // willRetry - whether the aborted turn would have retried after compaction
+  // fromExtension - whether extension-provided compaction content was being used
 });
 ```
 
-<a id="session_before_tree"></a>
 ### session_before_tree
 
-在 `/tree` 导航前触发。无论用户是否选择摘要都会触发。可以取消导航或提供自定义摘要。
+Fired before `/tree` navigation. Always fires regardless of whether user chose to summarize. Can cancel navigation or provide custom summary.
 
 ```typescript
 pi.on("session_before_tree", async (event, ctx) => {
   const { preparation, signal } = event;
 
-  // preparation.targetId - 导航目标
-  // preparation.oldLeafId - 当前位置（即将离开）
-  // preparation.commonAncestorId - 共同祖先
-  // preparation.entriesToSummarize - 将被摘要的条目
-  // preparation.userWantsSummary - 用户是否选择摘要
+  // preparation.targetId - where we're navigating to
+  // preparation.oldLeafId - current position (being abandoned)
+  // preparation.commonAncestorId - shared ancestor
+  // preparation.entriesToSummarize - entries that would be summarized
+  // preparation.userWantsSummary - whether user chose to summarize
 
-  // 完全取消导航：
+  // Cancel navigation entirely:
   return { cancel: true };
 
-  // 提供自定义摘要（仅在 userWantsSummary 为 true 时使用）：
+  // Provide custom summary (only used if userWantsSummary is true):
   if (preparation.userWantsSummary) {
     return {
       summary: {
         summary: "Your summary...",
-        // usage: summaryResponse.usage, // 可选；计入会话总计
+        // usage: summaryResponse.usage, // Optional; included in session totals
         details: { /* custom data */ },
       }
     };
@@ -413,12 +393,11 @@ pi.on("session_before_tree", async (event, ctx) => {
 });
 ```
 
-见类型文件中的 `SessionBeforeTreeEvent` 和 `TreePreparation`。
+See `SessionBeforeTreeEvent` and `TreePreparation` in the types file.
 
-<a id="settings"></a>
-## 设置
+## Settings
 
-在 `~/.pi/agent/settings.json` 或 `<project-dir>/.pi/settings.json` 中配置压缩：
+Configure compaction in `~/.pi/agent/settings.json` or `<project-dir>/.pi/settings.json`:
 
 ```json
 {
@@ -430,10 +409,10 @@ pi.on("session_before_tree", async (event, ctx) => {
 }
 ```
 
-| 设置 | 默认值 | 说明 |
+| Setting | Default | Description |
 |---------|---------|-------------|
-| `enabled` | `true` | 启用自动压缩 |
-| `reserveTokens` | `16384` | 为 LLM 回复预留的 token |
-| `keepRecentTokens` | `20000` | 保留的近期 token（不摘要） |
+| `enabled` | `true` | Enable auto-compaction |
+| `reserveTokens` | `16384` | Tokens to reserve for LLM response |
+| `keepRecentTokens` | `20000` | Recent tokens to keep (not summarized) |
 
-用 `"enabled": false` 禁用自动压缩。仍可用 `/compact` 手动压缩。
+Disable auto-compaction with `"enabled": false`. You can still compact manually with `/compact`.

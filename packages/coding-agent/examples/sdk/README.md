@@ -1,39 +1,35 @@
-<a id="sdk-examples"></a>
-# SDK 示例
+# SDK Examples
 
-通过 `createAgentSession()` 和 `createAgentSessionRuntime()` 以编程方式使用 pi-coding-agent。
+Programmatic usage of pi-coding-agent via `createAgentSession()` and `createAgentSessionRuntime()`.
 
-runtime 示例展示如何构建一个 recreate 函数：它闭包捕获进程全局的固定输入，并在活动会话的 cwd 变化时重建与 cwd 绑定的服务和会话。
+The runtime example shows how to build a recreate function that closes over process-global fixed inputs and recreates cwd-bound services and sessions as the active session cwd changes.
 
-<a id="examples"></a>
-## 示例
+## Examples
 
-| 文件 | 说明 |
+| File | Description |
 |------|-------------|
-| `01-minimal.ts` | 使用全部默认值的最简用法 |
-| `02-custom-model.ts` | 选择模型和思考级别 |
-| `03-custom-prompt.ts` | 替换或修改系统提示 |
-| `04-skills.ts` | 发现、过滤或替换 skills |
-| `05-tools.ts` | 内置工具允许列表 |
-| `06-extensions.ts` | 日志、拦截、结果修改 |
-| `07-context-files.ts` | AGENTS.md 上下文文件 |
-| `08-slash-commands.ts` | 基于文件的斜杠命令 |
-| `09-api-keys-and-oauth.ts` | API key 解析、OAuth 配置 |
-| `10-settings.ts` | 覆盖压缩、重试、终端设置 |
-| `11-sessions.ts` | 内存、持久化、继续、列出会话 |
-| `12-full-control.ts` | 替换一切，不做发现 |
-| `13-session-runtime.ts` | 管理由 runtime 支撑的会话替换 |
+| `01-minimal.ts` | Simplest usage with all defaults |
+| `02-custom-model.ts` | Select model and thinking level |
+| `03-custom-prompt.ts` | Replace or modify system prompt |
+| `04-skills.ts` | Discover, filter, or replace skills |
+| `05-tools.ts` | Built-in tool allowlists |
+| `06-extensions.ts` | Logging, blocking, result modification |
+| `07-context-files.ts` | AGENTS.md context files |
+| `08-slash-commands.ts` | File-based slash commands |
+| `09-api-keys-and-oauth.ts` | API key resolution, OAuth config |
+| `10-settings.ts` | Override compaction, retry, terminal settings |
+| `11-sessions.ts` | In-memory, persistent, continue, list sessions |
+| `12-full-control.ts` | Replace everything, no discovery |
+| `13-session-runtime.ts` | Manage runtime-backed session replacement |
 
-<a id="running"></a>
-## 运行
+## Running
 
 ```bash
 cd packages/coding-agent
 npx tsx examples/sdk/01-minimal.ts
 ```
 
-<a id="quick-reference"></a>
-## 快速参考
+## Quick Reference
 
 ```typescript
 import { getModel } from "@earendil-works/pi-ai";
@@ -47,30 +43,30 @@ import {
 
 const modelRuntime = await ModelRuntime.create();
 
-// 最小用法
+// Minimal
 const { session } = await createAgentSession({ modelRuntime });
 
-// 自定义模型
+// Custom model
 const model = getModel("anthropic", "claude-opus-4-5");
 const { session } = await createAgentSession({ model, thinkingLevel: "high", modelRuntime });
 
-// 修改提示
+// Modify prompt
 const loader = new DefaultResourceLoader({
   systemPromptOverride: (base) => `${base}\n\nBe concise.`,
 });
 await loader.reload();
 const { session } = await createAgentSession({ resourceLoader: loader, modelRuntime });
 
-// 只读
+// Read-only
 const { session } = await createAgentSession({ tools: ["read", "grep", "find", "ls"], modelRuntime });
 
-// 内存
+// In-memory
 const { session } = await createAgentSession({
   sessionManager: SessionManager.inMemory(),
   modelRuntime,
 });
 
-// 完全控制
+// Full control
 const customRuntime = await ModelRuntime.create({
   authPath: "/my/app/auth.json",
   modelsPath: "/my/app/models.json",
@@ -96,7 +92,7 @@ const { session } = await createAgentSession({
   settingsManager: SettingsManager.inMemory(),
 });
 
-// 运行提示
+// Run prompts
 session.subscribe((event) => {
   if (event.type === "message_update" && event.assistantMessageEvent.type === "text_delta") {
     process.stdout.write(event.assistantMessageEvent.delta);
@@ -105,24 +101,22 @@ session.subscribe((event) => {
 await session.prompt("Hello");
 ```
 
-<a id="options"></a>
-## 选项
+## Options
 
-| 选项 | 默认值 | 说明 |
+| Option | Default | Description |
 |--------|---------|-------------|
-| `modelRuntime` | 使用 `agentDir/auth.json` 和 `models.json` 的 runtime | 权威的模型和认证 runtime |
-| `cwd` | `process.cwd()` | 工作目录 |
-| `agentDir` | `~/.pi/agent` | 配置目录 |
-| `model` | 来自设置/第一个可用 | 要使用的模型 |
-| `thinkingLevel` | 来自设置/"off" | off、low、medium、high |
-| `tools` | `["read", "bash", "edit", "write"]` 内置 | 跨内置、扩展和自定义工具的允许列表工具名 |
-| `customTools` | `[]` | 额外工具定义 |
-| `resourceLoader` | DefaultResourceLoader | 扩展、skills、提示模板、主题和上下文文件的资源加载器 |
-| `sessionManager` | `SessionManager.create(cwd)` | 持久化 |
-| `settingsManager` | `SettingsManager.create(cwd, agentDir)` | 设置覆盖 |
+| `modelRuntime` | Runtime using `agentDir/auth.json` and `models.json` | Canonical model and authentication runtime |
+| `cwd` | `process.cwd()` | Working directory |
+| `agentDir` | `~/.pi/agent` | Config directory |
+| `model` | From settings/first available | Model to use |
+| `thinkingLevel` | From settings/"off" | off, low, medium, high |
+| `tools` | `["read", "bash", "edit", "write"]` built-ins | Allowlist tool names across built-in, extension, and custom tools |
+| `customTools` | `[]` | Additional tool definitions |
+| `resourceLoader` | DefaultResourceLoader | Resource loader for extensions, skills, prompts, themes, and context files |
+| `sessionManager` | `SessionManager.create(cwd)` | Persistence |
+| `settingsManager` | `SettingsManager.create(cwd, agentDir)` | Settings overrides |
 
-<a id="events"></a>
-## 事件
+## Events
 
 ```typescript
 session.subscribe((event) => {
