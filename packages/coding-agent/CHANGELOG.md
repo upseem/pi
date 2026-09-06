@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a type-safe i18n foundation with `en` / `zh-CN` catalogs, locale resolution, ambient translator, and English fallback for missing translations.
+
 ### Changed
 
 - Enabled strict-prefer JSON-schema sampling by default for built-in `read`, `bash`, `powershell`, `edit`, and `write` tools, without requiring `PI_EXPERIMENTAL`. Extensions can re-register tool definitions with `constrainedSampling: false`.

@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added injectable i18n translator support with English defaults for host apps to localize TUI strings.
+
 ## [0.85.1] - 2026-09-05
 
 ### Added

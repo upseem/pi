@@ -47,6 +47,16 @@ export {
 export type { EditorComponent } from "./editor-component.ts";
 // Fuzzy matching
 export { type FuzzyMatch, fuzzyFilter, fuzzyMatch } from "./fuzzy.ts";
+// i18n (English defaults + host-injected translator)
+export {
+	getTuiTranslator,
+	setTuiTranslator,
+	TUI_DEFAULT_MESSAGES,
+	type TuiMessageKey,
+	type TuiTranslateFn,
+	type TuiTranslateParams,
+	t as tuiT,
+} from "./i18n.ts";
 // Keybindings
 export {
 	getKeybindings,
