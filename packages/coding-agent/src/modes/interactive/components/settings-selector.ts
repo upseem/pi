@@ -12,6 +12,7 @@ import {
 	Text,
 } from "@earendil-works/pi-tui";
 import { formatHttpIdleTimeoutMs, HTTP_IDLE_TIMEOUT_CHOICES } from "../../../core/http-dispatcher.ts";
+import { t } from "../../../core/i18n/index.ts";
 import type {
 	DefaultProjectTrust,
 	FullscreenExitOutput,
@@ -26,15 +27,24 @@ import { SelectSubmenu, SteppedSubmenu, type SteppedSubmenuStep } from "./settin
 
 const MODEL_PICKER_LAYOUT = { minPrimaryColumnWidth: 12, maxPrimaryColumnWidth: 46 };
 
-const THINKING_DESCRIPTIONS: Record<ThinkingLevel, string> = {
-	off: "No reasoning",
-	minimal: "Very brief reasoning (~1k tokens)",
-	low: "Light reasoning (~2k tokens)",
-	medium: "Moderate reasoning (~8k tokens)",
-	high: "Deep reasoning (~16k tokens)",
-	xhigh: "Extra-high reasoning (~32k tokens)",
-	max: "Maximum reasoning",
-};
+function thinkingDescription(level: ThinkingLevel): string {
+	switch (level) {
+		case "off":
+			return t("settings.thinking.off");
+		case "minimal":
+			return t("settings.thinking.minimal");
+		case "low":
+			return t("settings.thinking.low");
+		case "medium":
+			return t("settings.thinking.medium");
+		case "high":
+			return t("settings.thinking.high");
+		case "xhigh":
+			return t("settings.thinking.xhigh");
+		case "max":
+			return t("settings.thinking.max");
+	}
+}
 
 const DEFAULT_PROJECT_TRUST_LABELS: Record<DefaultProjectTrust, string> = {
 	ask: "Ask",
@@ -633,7 +643,7 @@ export class SettingsSelectorComponent extends Container {
 								const items: SelectItem[] = levels.map((level) => ({
 									value: level,
 									label: `${level === activeLevel ? "✓ " : "  "}${level}`,
-									description: THINKING_DESCRIPTIONS[level],
+									description: thinkingDescription(level),
 								}));
 								if (currentModelThinkingLevels[ctx.model] !== undefined) {
 									items.push({

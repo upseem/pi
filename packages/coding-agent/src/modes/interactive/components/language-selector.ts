@@ -34,7 +34,7 @@ export class LanguageSelectorComponent extends Container {
 		const items: SelectItem[] = LANGUAGE_OPTIONS.map((value) => ({
 			value,
 			label: optionLabel(value),
-			description: value === current ? "(current)" : undefined,
+			description: value === current ? t("lang.option.current") : undefined,
 		}));
 
 		this.addChild(new DynamicBorder());

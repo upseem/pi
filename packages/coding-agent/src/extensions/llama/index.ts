@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "../../core/extensions/types.ts";
+import { t } from "../../core/i18n/index.ts";
 import { formatBytes, LlamaClient, type LlamaModelInfo, normalizeLlamaServerUrl } from "./client.ts";
 import { findHuggingFaceToken, HuggingFaceClient } from "./huggingface.ts";
 import { createLlamaProvider, LLAMA_PROVIDER_ID } from "./provider.ts";
@@ -181,7 +182,7 @@ export default function llamaExtension(pi: ExtensionAPI): void {
 	};
 
 	pi.registerCommand("llama", {
-		description: "管理 llama.cpp 路由模型",
+		description: t("ext.llama.description"),
 		handler: async (_args, ctx) => {
 			if (ctx.mode !== "tui") {
 				ctx.ui.notify("/llama is available in interactive mode", "warning");
